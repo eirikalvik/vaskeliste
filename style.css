@@ -3625,14 +3625,22 @@ body {
 
 .btn-dev-action.danger {
   flex: 0 0 auto;
-  min-width: 34px;
-  background: transparent;
-  border: 1px solid rgba(244, 63, 94, 0.2);
-  color: var(--color-rose);
+  min-width: 68px;
+  background: rgba(244, 63, 94, 0.12);
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  color: #fda4af;
+  font-weight: 600;
 }
 
-.btn-dev-action.danger:hover {
-  background: rgba(244, 63, 94, 0.2);
+.btn-dev-action.danger:hover:not(:disabled) {
+  background: rgba(244, 63, 94, 0.3);
+  border-color: rgba(244, 63, 94, 0.6);
+  color: #fff;
+}
+
+.btn-dev-action.danger:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* Dev Auth Modal */

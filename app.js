@@ -589,61 +589,125 @@ const CollectiveAuthManager = {
     }
   },
 
-  deleteCollective(id) {
+  async deleteCollective(id, collectiveName = '') {
     if (!id) return;
-    const registry = this.getRegistry();
+    const cleanId = String(id).trim();
+    const cleanName = String(collectiveName || id).trim();
 
-    // 1. Delete from Firestore if connected
-    if (typeof CloudSyncManager !== 'undefined' && CloudSyncManager.db) {
+    // 1. Immediately flag and detach active cloud listener
+    if (typeof CloudSyncManager !== 'undefined') {
       CloudSyncManager.isDeletingOrRenaming = true;
       if (CloudSyncManager.activeUnsubscribe) {
-        CloudSyncManager.activeUnsubscribe();
+        try {
+          CloudSyncManager.activeUnsubscribe();
+        } catch (e) {}
         CloudSyncManager.activeUnsubscribe = null;
       }
-      CloudSyncManager.db.collection('vaskelister').doc(id).delete()
-        .then(() => {
-          setTimeout(() => { CloudSyncManager.isDeletingOrRenaming = false; }, 800);
-        })
-        .catch(err => {
-          CloudSyncManager.isDeletingOrRenaming = false;
-          console.warn('Could not delete from Firestore:', err);
-        });
     }
 
-    // 2. Clean localStorage keys for this collective
+    // 2. Handle active collective: destroy in-memory app instance so nothing can re-push
+    const currentActiveId = this.getActiveId();
+    const isCurrentlyActive = (currentActiveId && (currentActiveId === cleanId || currentActiveId.toLowerCase() === cleanId.toLowerCase())) ||
+      (app && (app.collectiveId === cleanId || (app.collectiveId && app.collectiveId.toLowerCase() === cleanId.toLowerCase())));
+
+    if (isCurrentlyActive) {
+      this.setActiveId(null);
+      app = null;
+    }
+
+    // 3. Delete from Firestore (all case variants and slugs)
+    if (typeof CloudSyncManager !== 'undefined' && CloudSyncManager.db) {
+      const db = CloudSyncManager.db;
+      const docIds = new Set([
+        cleanId,
+        cleanId.toLowerCase(),
+        slugifyCollective(cleanId),
+        slugifyCollective(cleanName),
+        cleanName
+      ]);
+      try {
+        docIds.add(decodeURIComponent(cleanId));
+        docIds.add(decodeURIComponent(cleanName));
+        docIds.add(decodeURIComponent(cleanId).toLowerCase());
+      } catch (e) {}
+      if (cleanId.toLowerCase() === 'mitt_kollektiv' || cleanName.toLowerCase() === 'mitt kollektiv') {
+        docIds.add('mitt_kollektiv');
+      }
+
+      const deletes = [];
+      docIds.forEach(dId => {
+        if (dId) {
+          deletes.push(
+            db.collection('vaskelister').doc(dId).delete()
+              .catch(err => console.warn(`Firestore delete warning for ${dId}:`, err))
+          );
+        }
+      });
+
+      try {
+        await Promise.all(deletes);
+      } catch (err) {
+        console.warn('Batch firestore deletion error:', err);
+      }
+    }
+
+    // 4. Clean all LocalStorage keys
     const allKeys = Object.keys(localStorage);
-    const prefix = `vaske_${id}_`;
+    const prefixes = [
+      `vaske_${cleanId}_`,
+      `vaske_${cleanId.toLowerCase()}_`,
+      `vaske_${slugifyCollective(cleanName)}_`,
+      `vaske_${slugifyCollective(cleanId)}_`
+    ];
+
     allKeys.forEach(k => {
-      if (k.startsWith(prefix)) {
+      if (prefixes.some(p => k.startsWith(p))) {
         localStorage.removeItem(k);
       }
     });
 
-    if (id === 'mitt_kollektiv') {
+    if (cleanId.toLowerCase() === 'mitt_kollektiv' || cleanName.toLowerCase() === 'mitt kollektiv') {
       const legacyKeys = ['roommates', 'semester_weeks', 'deep_clean_tasks', 'regular_tasks', 'active_week_id', 'schedule', 'completed_tasks', 'custom_tasks', 'deep_clean_history', 'extra_weeks'];
       legacyKeys.forEach(lk => localStorage.removeItem(`vaske_${lk}`));
     }
 
-    // 3. Update registry (remove matching id or slug)
-    const updated = registry.filter(c => c.id !== id && slugifyCollective(c.name) !== id);
+    // 5. Update Registry: remove all matching entries
+    const registry = this.getRegistry();
+    const updated = registry.filter(c => {
+      if (!c) return false;
+      const cId = (c.id || '').trim();
+      const cName = (c.name || '').trim();
+      const matchesId = cId === cleanId || cId.toLowerCase() === cleanId.toLowerCase();
+      const matchesSlug = cId === slugifyCollective(cleanName) || cId === slugifyCollective(cleanId);
+      const matchesName = cName.toLowerCase() === cleanName.toLowerCase();
+      return !matchesId && !matchesSlug && !matchesName;
+    });
     this.saveRegistry(updated);
 
-    // 4. Handle active collective deletion
-    const wasActive = this.getActiveId() === id || (app && app.collectiveId === id);
-    if (wasActive) {
-      this.setActiveId(null);
+    // 6. If this was active, switch to next collective or login view
+    if (isCurrentlyActive) {
       if (updated.length > 0) {
         this.loginWithId(updated[0].id);
       } else {
         this.showLoginView();
       }
-    } else {
-      if (typeof renderSwitchModalList === 'function') {
-        renderSwitchModalList();
-      }
-      if (typeof this.renderLoginView === 'function') {
-        this.renderLoginView();
-      }
+    }
+
+    // 7. Refresh all views
+    if (typeof renderSwitchModalList === 'function') {
+      renderSwitchModalList();
+    }
+    if (typeof this.renderLoginView === 'function') {
+      this.renderLoginView();
+    }
+    if (typeof DeveloperManager !== 'undefined' && DeveloperManager.loadAllCollectives) {
+      await DeveloperManager.loadAllCollectives();
+    }
+
+    if (typeof CloudSyncManager !== 'undefined') {
+      setTimeout(() => {
+        CloudSyncManager.isDeletingOrRenaming = false;
+      }, 500);
     }
   },
 
@@ -1006,10 +1070,7 @@ const CloudSyncManager = {
               app.applyRemoteState(data);
             }
           } else {
-            // First time in cloud: push current local state to cloud (only if not currently deleting or renaming)
-            if (app && app.collectiveId === collectiveId && !this.isDeletingOrRenaming) {
-              this.pushToCloud(app);
-            }
+            // Document does not exist or was deleted: DO NOT re-push!
           }
         }, err => {
           console.warn('Firestore onSnapshot error:', err);
@@ -1032,6 +1093,15 @@ const CloudSyncManager = {
 
   pushToCloud(appInstance) {
     if (!this.db || !appInstance || !appInstance.collectiveId || this.isDeletingOrRenaming) return;
+
+    // Safety check: Never push if the collective was deleted from local registry
+    if (typeof CollectiveAuthManager !== 'undefined') {
+      const reg = CollectiveAuthManager.getRegistry();
+      const inReg = reg.some(c => c && (c.id === appInstance.collectiveId || slugifyCollective(c.name || '') === appInstance.collectiveId));
+      if (!inReg && appInstance.collectiveId !== 'mitt_kollektiv') {
+        return;
+      }
+    }
 
     const payload = {
       name: appInstance.collectiveName || 'Mitt Kollektiv',
@@ -1300,7 +1370,7 @@ function initDeleteCollectiveModal() {
     });
   }
 
-  form.addEventListener('submit', (e) => {
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const targetId = modal.dataset.targetId;
     const targetName = modal.dataset.targetName || 'kollektivet';
@@ -1310,10 +1380,11 @@ function initDeleteCollectiveModal() {
       return;
     }
 
-    CollectiveAuthManager.deleteCollective(targetId);
     closeModal();
     const switchModal = document.getElementById('switchCollectiveModal');
     if (switchModal) switchModal.classList.remove('active');
+
+    await CollectiveAuthManager.deleteCollective(targetId, targetName);
     alert(`Kollektivet «${targetName}» er nå slettet.`);
   });
 }
@@ -1755,11 +1826,12 @@ const DeveloperManager = {
           <button type="button" class="btn-dev-action secondary btn-inspect-json" title="Se JSON rådata">
             <span>JSON</span>
           </button>
-          <button type="button" class="btn-dev-action danger btn-delete-col" title="Slett dette kollektivet">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button type="button" class="btn-dev-action danger btn-delete-col" title="Slett dette kollektivet permanent">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="3 6 5 6 21 6"></polyline>
               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
             </svg>
+            <span>Slett</span>
           </button>
         </div>
       `;
@@ -1790,33 +1862,22 @@ const DeveloperManager = {
         this.showJsonModal(col);
       });
 
-      // Delete
-      card.querySelector('.btn-delete-col').addEventListener('click', async () => {
-        if (!confirm(`Er du sikker på at du vil slette «${col.name || col.id}»? Dette kan ikke angres.`)) {
-          return;
-        }
-
-        if (CloudSyncManager.isInitialized && CloudSyncManager.db) {
-          try {
-            await CloudSyncManager.db.collection('vaskelister').doc(col.id).delete();
-          } catch (e) {
-            console.warn('Could not delete from Firestore:', e);
+      // Delete from Admin Dashboard
+      const btnDel = card.querySelector('.btn-delete-col');
+      if (btnDel) {
+        btnDel.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const targetName = col.name || col.id;
+          if (!confirm(`Er du sikker på at du vil slette «${targetName}»? Dette fjerner kollektivet permanent både fra skyen og på denne enheten.`)) {
+            return;
           }
-        }
 
-        const prefix = `vaske_${col.id}_`;
-        for (let i = localStorage.length - 1; i >= 0; i--) {
-          const key = localStorage.key(i);
-          if (key && key.startsWith(prefix)) {
-            localStorage.removeItem(key);
-          }
-        }
+          btnDel.disabled = true;
+          btnDel.style.opacity = '0.5';
 
-        const reg = CollectiveAuthManager.getRegistry().filter(r => r.id !== col.id);
-        CollectiveAuthManager.saveRegistry(reg);
-
-        this.loadAllCollectives();
-      });
+          await CollectiveAuthManager.deleteCollective(col.id, targetName);
+        });
+      }
 
       grid.appendChild(card);
     });

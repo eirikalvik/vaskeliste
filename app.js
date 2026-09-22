@@ -681,6 +681,10 @@ const CollectiveAuthManager = {
       nameDisplay.textContent = name;
       nameDisplay.title = name;
     }
+    const dropName = document.getElementById('dropdownCurrentName');
+    if (dropName) {
+      dropName.textContent = name;
+    }
 
     // Hide login view, show main app
     const loginView = document.getElementById('loginViewContainer');
@@ -1144,6 +1148,59 @@ function initRenameCollectiveModal() {
   });
 }
 
+function initCollectiveDropdown() {
+  const trigger = document.getElementById('btnCollectiveDropdownTrigger');
+  const menu = document.getElementById('collectiveDropdownMenu');
+  if (!trigger || !menu) return;
+
+  const toggleMenu = (e) => {
+    e.stopPropagation();
+    const isOpen = menu.classList.contains('active');
+    if (isOpen) {
+      closeMenu();
+    } else {
+      openMenu();
+    }
+  };
+
+  const openMenu = () => {
+    menu.classList.add('active');
+    trigger.setAttribute('aria-expanded', 'true');
+    const curNameEl = document.getElementById('dropdownCurrentName');
+    if (curNameEl && app && app.collectiveName) {
+      curNameEl.textContent = app.collectiveName;
+    }
+  };
+
+  const closeMenu = () => {
+    menu.classList.remove('active');
+    trigger.setAttribute('aria-expanded', 'false');
+  };
+
+  trigger.addEventListener('click', toggleMenu);
+
+  // Close when clicking any item in the dropdown
+  menu.querySelectorAll('.col-dropdown-item').forEach(item => {
+    item.addEventListener('click', () => {
+      closeMenu();
+    });
+  });
+
+  // Close when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!trigger.contains(e.target) && !menu.contains(e.target)) {
+      closeMenu();
+    }
+  });
+
+  // Close on Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && menu.classList.contains('active')) {
+      closeMenu();
+    }
+  });
+}
+
 // Developer / Admin Dashboard Manager
 const DeveloperManager = {
   DEV_PINS: ['admin', 'eirik', 'dev123', 'admin2026'],
@@ -1599,6 +1656,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initAddTaskForm();
   initCollectiveAuth();
   initRenameCollectiveModal();
+  initCollectiveDropdown();
   CloudSyncManager.init();
   DeveloperManager.init();
   initLegalModal();

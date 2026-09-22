@@ -199,20 +199,50 @@
   <div class="app-container" id="mainAppContainer" style="display: none;">
     <!-- Navigation / Header -->
     <header class="app-header">
-      <div class="header-top-row">
-        <div class="brand">
-          <div class="brand-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+      <div class="header-main-row">
+        <!-- Collective Dropdown Selector -->
+        <div class="collective-dropdown-wrap">
+          <button type="button" class="btn-collective-dropdown-trigger" id="btnCollectiveDropdownTrigger" aria-haspopup="true" aria-expanded="false" title="Kollektiv-innstillinger">
+            <span class="col-trigger-icon">🏠</span>
+            <span class="col-trigger-name" id="activeCollectiveNameDisplay">Mitt Kollektiv</span>
+            <svg class="col-trigger-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
-          </div>
-          <div class="brand-text">
-            <h1 class="brand-title">Vaskeliste Kollektivet</h1>
-            <p class="brand-subtitle" id="brandSubtitle">Høst 2026 • 3 Beboere</p>
+          </button>
+
+          <!-- Dropdown Menu -->
+          <div class="collective-dropdown-menu" id="collectiveDropdownMenu">
+            <div class="col-dropdown-header">
+              <span class="col-dropdown-title">KOLLEKTIV</span>
+              <span class="col-dropdown-name" id="dropdownCurrentName">Mitt Kollektiv</span>
+            </div>
+            <div class="col-dropdown-divider"></div>
+            <button type="button" class="col-dropdown-item" id="btnRenameCollective">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+              <span>Endre kollektivnavn</span>
+            </button>
+            <button type="button" class="col-dropdown-item" id="btnShareCollective">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
+                <polyline points="16 6 12 2 8 6"></polyline>
+                <line x1="12" y1="2" x2="12" y2="15"></line>
+              </svg>
+              <span id="btnShareLabel">Kopier delingslenke</span>
+            </button>
+            <div class="col-dropdown-divider"></div>
+            <button type="button" class="col-dropdown-item col-dropdown-switch" id="btnSwitchCollective">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/>
+              </svg>
+              <span>Bytt kollektiv</span>
+            </button>
           </div>
         </div>
 
-        <div class="header-top-actions">
+        <div class="header-status-wrap">
           <button id="btnCloudSyncStatus" class="btn btn-glass btn-sync-status" title="Sky-synkronisering & status">
             <span class="sync-indicator-dot sync-offline" id="syncIndicatorDot"></span>
             <span id="syncStatusLabel">Lokal</span>
@@ -220,44 +250,13 @@
         </div>
       </div>
 
-      <!-- Collective Bar: Clean, spacious glass bar -->
-      <div class="collective-bar" id="activeCollectivePill">
-        <div class="col-bar-info">
-          <span class="col-bar-icon">🏠</span>
-          <span class="col-bar-name" id="activeCollectiveNameDisplay" title="Aktivt kollektiv">Mitt Kollektiv</span>
-        </div>
-        <div class="col-bar-actions">
-          <button type="button" class="btn-col-action btn-rename-collective" id="btnRenameCollective" title="Endre navn på kollektivet">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-            </svg>
-            <span>Endre navn</span>
-          </button>
-          <button type="button" class="btn-col-action btn-switch-collective" id="btnSwitchCollective" title="Bytt kollektiv">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/>
-            </svg>
-            <span>Bytt</span>
-          </button>
-          <button type="button" class="btn-col-action btn-share-collective" id="btnShareCollective" title="Kopier direkte invitasjonslenke til kollektivet">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
-              <polyline points="16 6 12 2 8 6"/>
-              <line x1="12" y1="2" x2="12" y2="15"/>
-            </svg>
-            <span id="btnShareLabel">Del lenke</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Quick Roommates Bar -->
-      <div class="header-bottom-bar">
+      <div class="header-sub-row">
         <div class="roommates-quick-list" id="roommatesQuickList" title="Beboere i kollektivet">
           <!-- Populated by JS -->
         </div>
+        <p class="brand-subtitle" id="brandSubtitle">Høst 2026 • 3 Beboere</p>
         <button id="btnEditRoommates" class="btn btn-glass btn-sm" title="Rediger beboere">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
             <circle cx="9" cy="7" r="4"/>
             <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>

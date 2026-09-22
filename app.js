@@ -1558,6 +1558,9 @@ function updateProgress() {
       origin: { y: 0.6 }
     });
   }
+
+  // Refresh schedule table if present to reflect historical progress count
+  renderScheduleTable();
 }
 
 function renderWeeklyTasks() {
@@ -2010,6 +2013,28 @@ function renderScheduleTable() {
 
     const assignedPerson = app.getAssigneeForWeek(w);
     const isRealCurrent = w.isCurrent;
+    const weekTasks = app.getTasksForWeek(w.id);
+    const totalCount = weekTasks.length;
+    const completedCount = weekTasks.filter(t => app.isTaskDone(w.id, t.id)).length;
+    const isAllDone = totalCount > 0 && completedCount === totalCount;
+    const isPartial = completedCount > 0 && completedCount < totalCount;
+
+    let statusBadge = '';
+    if (isRealCurrent) {
+      if (isAllDone) {
+        statusBadge = `<span class="status-live-tag"><span class="dot-pulse"></span>Denne uken: Fullført (${completedCount}/${totalCount})</span>`;
+      } else {
+        statusBadge = `<span class="status-live-tag"><span class="dot-pulse"></span>Denne uken (${completedCount}/${totalCount})</span>`;
+      }
+    } else if (isAllDone) {
+      statusBadge = `<span class="task-tag tag-done">✓ Fullført (${completedCount}/${totalCount})</span>`;
+    } else if (isPartial) {
+      statusBadge = `<span class="task-tag tag-partial">Påbegynt (${completedCount}/${totalCount})</span>`;
+    } else if (w.year < app.realCurrentYear || (w.year === app.realCurrentYear && w.week < app.realCurrentWeek)) {
+      statusBadge = `<span class="task-tag tag-empty">Ikke fullført (${completedCount}/${totalCount})</span>`;
+    } else {
+      statusBadge = `<span class="task-tag tag-empty">Kommende uke</span>`;
+    }
 
     tr.innerHTML = `
       <td>
@@ -2029,7 +2054,7 @@ function renderScheduleTable() {
         </div>
       </td>
       <td>
-        ${isRealCurrent ? '<span class="status-live-tag"><span class="dot-pulse"></span>Denne uken (Nå)</span>' : (w.year < app.realCurrentYear || (w.year === app.realCurrentYear && w.week < app.realCurrentWeek) ? '<span class="task-tag">Tidligere</span>' : '<span class="task-tag">Kommende</span>')}
+        ${statusBadge}
       </td>
       <td>
         <button class="btn btn-glass-secondary btn-select-week" data-week-id="${w.id}">
@@ -2291,7 +2316,10 @@ function initNavigation() {
       btn.classList.add('active');
       if (targetTab === 'weekly') document.getElementById('tabContentWeekly').classList.add('active');
       if (targetTab === 'deepclean') document.getElementById('tabContentDeepClean').classList.add('active');
-      if (targetTab === 'schedule') document.getElementById('tabContentSchedule').classList.add('active');
+      if (targetTab === 'schedule') {
+        renderScheduleTable();
+        document.getElementById('tabContentSchedule').classList.add('active');
+      }
     });
   });
 

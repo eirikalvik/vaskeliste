@@ -491,12 +491,22 @@ const CollectiveAuthManager = {
       console.warn('Failed to parse collective registry', e);
     }
 
-    // Strictly deduplicate by ID and normalized lowercase name
+    // Check if mitt_kollektiv is an un-customized dummy placeholder
+    const hasCustomMittData = Boolean(
+      localStorage.getItem('vaske_mitt_kollektiv_completed_tasks') ||
+      (localStorage.getItem('vaske_completed_tasks') && localStorage.getItem(this.STORAGE_ACTIVE_ID_KEY) === 'mitt_kollektiv')
+    );
+
+    // Strictly deduplicate by ID and normalized lowercase name, and purge dummy placeholder
     const seenIds = new Set();
     const seenNames = new Set();
     const cleanList = [];
     for (const item of list) {
       if (!item || !item.id) continue;
+      // Do not suggest auto-seeded dummy placeholder on devices that never used it
+      if (item.id === 'mitt_kollektiv' && !hasCustomMittData) {
+        continue;
+      }
       const normName = (item.name || '').trim().toLowerCase();
       if (!seenIds.has(item.id) && !seenNames.has(normName)) {
         seenIds.add(item.id);
@@ -505,25 +515,12 @@ const CollectiveAuthManager = {
       }
     }
 
-    if (cleanList.length > 0) {
-      if (cleanList.length !== list.length) {
-        this.saveRegistry(cleanList);
-      }
-      return cleanList;
+    // Save cleaned registry if items were purged or deduplicated
+    if (cleanList.length !== list.length) {
+      this.saveRegistry(cleanList);
     }
 
-    // Only seed default placeholder on very first app initialization
-    const hasEverInitialized = localStorage.getItem('vaske_app_has_initialized');
-    if (!hasEverInitialized) {
-      localStorage.setItem('vaske_app_has_initialized', 'true');
-      const defaultList = [
-        { id: 'mitt_kollektiv', name: 'Mitt Kollektiv', lastActive: Date.now() }
-      ];
-      this.saveRegistry(defaultList);
-      return defaultList;
-    }
-
-    return [];
+    return cleanList;
   },
 
   saveRegistry(registry) {
@@ -1946,7 +1943,13 @@ document.addEventListener('DOMContentLoaded', () => {
   } else if (sharedCol) {
     CollectiveAuthManager.login(sharedCol);
   } else {
-    CollectiveAuthManager.showLoginView();
+    const activeId = CollectiveAuthManager.getActiveId();
+    const registry = CollectiveAuthManager.getRegistry();
+    if (activeId && registry.some(c => c.id === activeId)) {
+      CollectiveAuthManager.loginWithId(activeId);
+    } else {
+      CollectiveAuthManager.showLoginView();
+    }
   }
 });
 

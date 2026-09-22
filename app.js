@@ -927,6 +927,15 @@ function initCollectiveAuth() {
       const input = document.getElementById('inputCollectiveName');
       const val = input.value.trim();
       if (!val) return;
+
+      // Shortcut: If user enters 'admin' or 'dev', open developer dashboard
+      const lower = val.toLowerCase();
+      if (lower === 'admin' || lower === 'dev' || lower === 'developer') {
+        input.value = '';
+        DeveloperManager.openDevModal();
+        return;
+      }
+
       CollectiveAuthManager.login(val);
     });
   }
@@ -937,7 +946,413 @@ function initCollectiveAuth() {
       CollectiveAuthManager.showLoginView();
     });
   }
+
+  const btnShare = document.getElementById('btnShareCollective');
+  if (btnShare) {
+    btnShare.addEventListener('click', () => {
+      if (!app || !app.collectiveId) return;
+      const shareUrl = `${window.location.origin}${window.location.pathname}?kollektiv=${encodeURIComponent(app.collectiveId)}`;
+      
+      const copySuccess = () => {
+        const label = document.getElementById('btnShareLabel');
+        if (label) {
+          const original = label.textContent;
+          label.textContent = 'Kopiert! ✓';
+          setTimeout(() => { label.textContent = original; }, 2200);
+        }
+        if (window.confetti) window.confetti({ particleCount: 30, spread: 50 });
+      };
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(shareUrl).then(copySuccess).catch(() => {
+          prompt('Kopier denne lenken for å dele kollektivet:', shareUrl);
+        });
+      } else {
+        prompt('Kopier denne lenken for å dele kollektivet:', shareUrl);
+      }
+    });
+  }
 }
+
+// Developer / Admin Dashboard Manager
+const DeveloperManager = {
+  DEV_PINS: ['admin', 'eirik', 'dev123', 'admin2026'],
+  collectivesData: [],
+
+  init() {
+    this.initAuthModal();
+    this.initJsonModal();
+
+    const btnOpen = document.getElementById('btnOpenDevModal');
+    if (btnOpen) {
+      btnOpen.addEventListener('click', () => this.openDevModal());
+    }
+
+    const btnClose = document.getElementById('btnCloseDevView');
+    if (btnClose) {
+      btnClose.addEventListener('click', () => this.hideDevView());
+    }
+
+    const btnRefresh = document.getElementById('btnRefreshDevList');
+    if (btnRefresh) {
+      btnRefresh.addEventListener('click', () => this.loadAllCollectives());
+    }
+
+    const searchInput = document.getElementById('inputDevSearch');
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => this.renderCollectivesList(e.target.value));
+    }
+  },
+
+  openDevModal() {
+    if (sessionStorage.getItem('vaske_dev_auth') === 'true') {
+      this.showDevView();
+      return;
+    }
+
+    const modal = document.getElementById('devAuthModal');
+    if (modal) {
+      modal.classList.add('active');
+      const input = document.getElementById('inputDevPin');
+      if (input) {
+        input.value = '';
+        setTimeout(() => input.focus(), 150);
+      }
+    }
+  },
+
+  closeDevModal() {
+    const modal = document.getElementById('devAuthModal');
+    if (modal) modal.classList.remove('active');
+  },
+
+  initAuthModal() {
+    const modal = document.getElementById('devAuthModal');
+    const btnClose = document.getElementById('btnCloseDevAuthModal');
+    const btnCancel = document.getElementById('btnCancelDevAuth');
+    const form = document.getElementById('formDevAuth');
+
+    if (!modal) return;
+    if (btnClose) btnClose.addEventListener('click', () => this.closeDevModal());
+    if (btnCancel) btnCancel.addEventListener('click', () => this.closeDevModal());
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) this.closeDevModal();
+    });
+
+    if (form) {
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const pin = document.getElementById('inputDevPin').value.trim();
+        const customPin = localStorage.getItem('vaske_custom_dev_pin');
+
+        if (this.DEV_PINS.includes(pin.toLowerCase()) || (customPin && pin === customPin)) {
+          sessionStorage.setItem('vaske_dev_auth', 'true');
+          this.closeDevModal();
+          this.showDevView();
+        } else {
+          alert('Feil utvikler-PIN eller passord. Standard passord er "admin" eller "eirik".');
+          document.getElementById('inputDevPin').focus();
+        }
+      });
+    }
+  },
+
+  showDevView() {
+    const devView = document.getElementById('devViewContainer');
+    const loginView = document.getElementById('loginViewContainer');
+    const mainApp = document.getElementById('mainAppContainer');
+
+    if (loginView) loginView.style.display = 'none';
+    if (mainApp) mainApp.style.display = 'none';
+    if (devView) {
+      devView.style.display = 'block';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      this.loadAllCollectives();
+    }
+  },
+
+  hideDevView() {
+    const devView = document.getElementById('devViewContainer');
+    if (devView) devView.style.display = 'none';
+
+    if (app && app.collectiveId) {
+      const mainApp = document.getElementById('mainAppContainer');
+      if (mainApp) mainApp.style.display = 'block';
+    } else {
+      CollectiveAuthManager.showLoginView();
+    }
+  },
+
+  async loadAllCollectives() {
+    const grid = document.getElementById('devCollectivesGrid');
+    if (grid) {
+      grid.innerHTML = '<div style="color: var(--text-muted); padding: 20px;">Laster inn alle kollektiv...</div>';
+    }
+
+    const collectivesMap = new Map();
+    let isCloud = false;
+
+    // 1. Fetch from Firestore if initialized
+    if (CloudSyncManager.isInitialized && CloudSyncManager.db) {
+      try {
+        const snap = await CloudSyncManager.db.collection('vaskelister').get();
+        snap.forEach(doc => {
+          collectivesMap.set(doc.id, {
+            id: doc.id,
+            source: 'cloud',
+            ...doc.data()
+          });
+        });
+        isCloud = true;
+      } catch (err) {
+        console.warn('Could not read cloud collectives:', err);
+      }
+    }
+
+    // 2. Fetch from Local Storage registry
+    const localReg = CollectiveAuthManager.getRegistry();
+    localReg.forEach(item => {
+      if (!collectivesMap.has(item.id)) {
+        let roommates = DEFAULT_ROOMMATES;
+        let completedTasks = {};
+        let deepCleanHistory = {};
+        let scheduleAssignments = {};
+        try {
+          const rm = localStorage.getItem(`vaske_${item.id}_roommates`);
+          if (rm) roommates = JSON.parse(rm);
+          const tasks = localStorage.getItem(`vaske_${item.id}_completed_tasks`);
+          if (tasks) completedTasks = JSON.parse(tasks);
+          const dc = localStorage.getItem(`vaske_${item.id}_deep_clean_history`);
+          if (dc) deepCleanHistory = JSON.parse(dc);
+          const sc = localStorage.getItem(`vaske_${item.id}_schedule`);
+          if (sc) scheduleAssignments = JSON.parse(sc);
+        } catch (e) {}
+
+        collectivesMap.set(item.id, {
+          id: item.id,
+          name: item.name,
+          source: 'local',
+          roommates,
+          completedTasks,
+          deepCleanHistory,
+          scheduleAssignments,
+          lastActive: item.lastActive
+        });
+      }
+    });
+
+    this.collectivesData = Array.from(collectivesMap.values());
+
+    // Update stat counters
+    const countEl = document.getElementById('statDevCollectivesCount');
+    const rmEl = document.getElementById('statDevRoommatesCount');
+    const srcEl = document.getElementById('statDevSource');
+
+    if (countEl) countEl.textContent = this.collectivesData.length;
+    if (rmEl) {
+      const totalRms = this.collectivesData.reduce((acc, c) => acc + (Array.isArray(c.roommates) ? c.roommates.length : 0), 0);
+      rmEl.textContent = totalRms;
+    }
+    if (srcEl) {
+      srcEl.textContent = isCloud ? 'Firebase Sky (Sanntid)' : 'Lokal lagring';
+      srcEl.style.color = isCloud ? 'var(--color-accent-light)' : '#cbd5e1';
+    }
+
+    this.renderCollectivesList();
+  },
+
+  renderCollectivesList(searchFilter = '') {
+    const grid = document.getElementById('devCollectivesGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    const filter = (searchFilter || '').trim().toLowerCase();
+    const filtered = this.collectivesData.filter(c => {
+      if (!filter) return true;
+      const name = (c.name || '').toLowerCase();
+      const id = (c.id || '').toLowerCase();
+      return name.includes(filter) || id.includes(filter);
+    });
+
+    if (filtered.length === 0) {
+      grid.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: var(--text-muted);">
+          Ingen kollektiv funnet som matcher «${escapeHTML(filter)}»
+        </div>
+      `;
+      return;
+    }
+
+    filtered.forEach(col => {
+      const card = document.createElement('div');
+      card.className = 'dev-col-card';
+
+      const roommates = Array.isArray(col.roommates) ? col.roommates : [];
+      const deepCleanCount = col.deepCleanHistory ? Object.keys(col.deepCleanHistory).length : 0;
+
+      const now = new Date();
+      const currentWeekNum = getRealCurrentISOWeek(now);
+      const currentYear = now.getFullYear();
+      const currentWeekKey = `${currentYear}_${currentWeekNum}`;
+      const completedThisWeek = (col.completedTasks && (col.completedTasks[currentWeekKey] || col.completedTasks[currentWeekNum]))
+        ? Object.values(col.completedTasks[currentWeekKey] || col.completedTasks[currentWeekNum]).filter(Boolean).length
+        : 0;
+
+      card.innerHTML = `
+        <div>
+          <div class="dev-card-top">
+            <div class="dev-card-title-wrap">
+              <h3 class="dev-card-name" title="${escapeHTML(col.name || col.id)}">${escapeHTML(col.name || col.id)}</h3>
+              <span class="dev-card-slug">ID: ${escapeHTML(col.id)}</span>
+            </div>
+            <span class="dev-card-source-badge ${col.source === 'cloud' ? 'badge-cloud' : 'badge-local'}">
+              ${col.source === 'cloud' ? '☁️ Sky' : '📱 Lokal'}
+            </span>
+          </div>
+
+          <div style="margin: 14px 0 10px;">
+            <div class="dev-roommates-chips">
+              ${roommates.map((rm, i) => `
+                <span class="dev-rm-chip">
+                  <span class="dev-rm-dot avatar-color-${(i % 8) + 1}"></span>
+                  ${escapeHTML(rm.name || 'Beboer')}
+                </span>
+              `).join('')}
+            </div>
+          </div>
+
+          <div class="dev-meta-list">
+            <div class="dev-meta-row">
+              <span>Beboere:</span>
+              <span class="val">${roommates.length} stk</span>
+            </div>
+            <div class="dev-meta-row">
+              <span>Uke ${currentWeekNum} fremgang:</span>
+              <span class="val">${completedThisWeek} av 8 fullført</span>
+            </div>
+            <div class="dev-meta-row">
+              <span>Dypvask logget:</span>
+              <span class="val">${deepCleanCount} oppgaver</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="dev-card-actions">
+          <button type="button" class="btn-dev-action primary btn-open-collective" title="Åpne og se dette kollektivet">
+            <span>Åpne</span>
+          </button>
+          <button type="button" class="btn-dev-action secondary btn-copy-link" title="Kopier delelenke">
+            <span>Lenke</span>
+          </button>
+          <button type="button" class="btn-dev-action secondary btn-inspect-json" title="Se JSON rådata">
+            <span>JSON</span>
+          </button>
+          <button type="button" class="btn-dev-action danger btn-delete-col" title="Slett dette kollektivet">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
+        </div>
+      `;
+
+      // Open collective
+      card.querySelector('.btn-open-collective').addEventListener('click', () => {
+        this.hideDevView();
+        CollectiveAuthManager.loginWithId(col.id);
+      });
+
+      // Copy link
+      card.querySelector('.btn-copy-link').addEventListener('click', (e) => {
+        const link = `${window.location.origin}${window.location.pathname}?kollektiv=${encodeURIComponent(col.id)}`;
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(link).then(() => {
+            const btn = e.target.closest('button');
+            const orig = btn.innerHTML;
+            btn.innerHTML = '<span>Kopiert! ✓</span>';
+            setTimeout(() => { btn.innerHTML = orig; }, 1600);
+          });
+        } else {
+          prompt('Delelenke:', link);
+        }
+      });
+
+      // Inspect JSON
+      card.querySelector('.btn-inspect-json').addEventListener('click', () => {
+        this.showJsonModal(col);
+      });
+
+      // Delete
+      card.querySelector('.btn-delete-col').addEventListener('click', async () => {
+        if (!confirm(`Er du sikker på at du vil slette «${col.name || col.id}»? Dette kan ikke angres.`)) {
+          return;
+        }
+
+        if (CloudSyncManager.isInitialized && CloudSyncManager.db) {
+          try {
+            await CloudSyncManager.db.collection('vaskelister').doc(col.id).delete();
+          } catch (e) {
+            console.warn('Could not delete from Firestore:', e);
+          }
+        }
+
+        const prefix = `vaske_${col.id}_`;
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith(prefix)) {
+            localStorage.removeItem(key);
+          }
+        }
+
+        const reg = CollectiveAuthManager.getRegistry().filter(r => r.id !== col.id);
+        CollectiveAuthManager.saveRegistry(reg);
+
+        this.loadAllCollectives();
+      });
+
+      grid.appendChild(card);
+    });
+  },
+
+  showJsonModal(data) {
+    const modal = document.getElementById('jsonInspectorModal');
+    const title = document.getElementById('jsonInspectorTitle');
+    const code = document.getElementById('jsonInspectorCode');
+
+    if (title) title.textContent = `${data.name || data.id} (Rådata)`;
+    if (code) code.textContent = JSON.stringify(data, null, 2);
+    if (modal) modal.classList.add('active');
+  },
+
+  initJsonModal() {
+    const modal = document.getElementById('jsonInspectorModal');
+    const btnClose = document.getElementById('btnCloseJsonModal');
+    const btnAction = document.getElementById('btnCloseJsonAction');
+    const btnCopy = document.getElementById('btnCopyJson');
+    const code = document.getElementById('jsonInspectorCode');
+
+    if (!modal) return;
+    const closeModal = () => modal.classList.remove('active');
+
+    if (btnClose) btnClose.addEventListener('click', closeModal);
+    if (btnAction) btnAction.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+
+    if (btnCopy) {
+      btnCopy.addEventListener('click', () => {
+        if (code && navigator.clipboard) {
+          navigator.clipboard.writeText(code.textContent).then(() => {
+            btnCopy.textContent = 'Kopiert! ✓';
+            setTimeout(() => { btnCopy.textContent = 'Kopier JSON'; }, 1500);
+          });
+        }
+      });
+    }
+  }
+};
 
 function renderAllViews() {
   if (!app) return;
@@ -960,9 +1375,20 @@ document.addEventListener('DOMContentLoaded', () => {
   initAddTaskForm();
   initCollectiveAuth();
   CloudSyncManager.init();
+  DeveloperManager.init();
 
-  // Show collective login on page open
-  CollectiveAuthManager.showLoginView();
+  // Check URL query parameters for direct collective sharing or developer view
+  const urlParams = new URLSearchParams(window.location.search);
+  const sharedCol = urlParams.get('kollektiv') || urlParams.get('c');
+  const isDevParam = urlParams.get('dev') || urlParams.get('admin');
+
+  if (isDevParam) {
+    DeveloperManager.openDevModal();
+  } else if (sharedCol) {
+    CollectiveAuthManager.login(sharedCol);
+  } else {
+    CollectiveAuthManager.showLoginView();
+  }
 });
 
 /* --- UI Renderers --- */

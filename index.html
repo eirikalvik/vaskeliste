@@ -104,6 +104,72 @@
           <span class="feat-text">Tilpass antall beboere</span>
         </div>
       </div>
+
+      <!-- Developer Access Link -->
+      <div class="login-dev-link-wrap">
+        <button type="button" class="btn-dev-mode-link" id="btnOpenDevModal">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+          </svg>
+          <span>Utvikler / Admin-modus</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Developer / Admin Dashboard View -->
+  <div class="dev-view-container" id="devViewContainer" style="display: none;">
+    <div class="dev-dashboard-card">
+      <div class="dev-dashboard-header">
+        <div class="dev-header-left">
+          <div class="dev-badge">🛠️ Utvikler-dashbord</div>
+          <h2 class="dev-title">Oversikt over alle kollektiv</h2>
+          <p class="dev-subtitle">Se alle opprettede kollektiv, beboere, ukentlig fremgang og rådata</p>
+        </div>
+        <div class="dev-header-actions">
+          <button type="button" class="btn btn-glass-secondary btn-sm" id="btnRefreshDevList">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+            </svg>
+            <span>Oppdater</span>
+          </button>
+          <button type="button" class="btn btn-accent btn-sm" id="btnCloseDevView">
+            <span>← Tilbake</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Developer Quick Stats -->
+      <div class="dev-stats-grid">
+        <div class="dev-stat-card">
+          <span class="stat-number" id="statDevCollectivesCount">0</span>
+          <span class="stat-label">Registrerte kollektiv</span>
+        </div>
+        <div class="dev-stat-card">
+          <span class="stat-number" id="statDevRoommatesCount">0</span>
+          <span class="stat-label">Totalt antall beboere</span>
+        </div>
+        <div class="dev-stat-card">
+          <span class="stat-badge-text" id="statDevSource">Lokal lagring</span>
+          <span class="stat-label">Aktiv datakilde</span>
+        </div>
+      </div>
+
+      <!-- Search / Filter -->
+      <div class="dev-search-bar">
+        <div class="search-input-wrap">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="inputDevSearch" class="dev-search-input" placeholder="Søk etter adresse eller kollektivnavn...">
+        </div>
+      </div>
+
+      <!-- Collectives List Container -->
+      <div class="dev-collectives-grid" id="devCollectivesGrid">
+        <!-- Rendered dynamically via JS -->
+      </div>
     </div>
   </div>
 
@@ -127,6 +193,14 @@
                   <path d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/>
                 </svg>
                 <span>Bytt</span>
+              </button>
+              <button type="button" class="btn-share-collective" id="btnShareCollective" title="Kopier direkte invitasjonslenke til kollektivet">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+                  <polyline points="16 6 12 2 8 6"/>
+                  <line x1="12" y1="2" x2="12" y2="15"/>
+                </svg>
+                <span id="btnShareLabel">Del lenke</span>
               </button>
             </div>
           </div>
@@ -646,6 +720,57 @@
           <button type="submit" class="btn btn-primary" id="btnSaveSyncConfig">Lagre og koble til skyen</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal: Utvikler-innlogging (PIN) -->
+  <div class="modal-overlay" id="devAuthModal">
+    <div class="modal-card dev-auth-card">
+      <div class="modal-header">
+        <div class="dev-modal-header-text">
+          <h3 class="modal-title">Utvikler-innlogging</h3>
+          <p class="modal-desc">Skriv inn utvikler-PIN eller passord for å åpne oversikten over alle kollektiv</p>
+        </div>
+        <button class="modal-close-btn" id="btnCloseDevAuthModal">&times;</button>
+      </div>
+
+      <form id="formDevAuth" class="dev-auth-form">
+        <div class="form-row">
+          <div class="form-col full-width">
+            <label for="inputDevPin">Utvikler-PIN / Passord (Standard: admin):</label>
+            <input type="password" id="inputDevPin" class="dev-pin-input" placeholder="Skriv inn PIN eller passord..." required>
+          </div>
+        </div>
+
+        <p class="dev-auth-hint">💡 Tips: Standard passord er <code>admin</code> eller <code>eirik</code>.</p>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-glass-secondary" id="btnCancelDevAuth">Avbryt</button>
+          <button type="submit" class="btn btn-primary" id="btnSubmitDevAuth">Logg inn som utvikler</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: JSON Inspector -->
+  <div class="modal-overlay" id="jsonInspectorModal">
+    <div class="modal-card json-inspector-card">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title" id="jsonInspectorTitle">Kollektiv Rådata (JSON)</h3>
+          <p class="modal-desc" id="jsonInspectorSubtitle">Inspiser strukturen og lagrede felter</p>
+        </div>
+        <button class="modal-close-btn" id="btnCloseJsonModal">&times;</button>
+      </div>
+
+      <div class="json-code-container">
+        <pre><code id="jsonInspectorCode"></code></pre>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-glass-secondary" id="btnCopyJson">Kopier JSON</button>
+        <button type="button" class="btn btn-primary" id="btnCloseJsonAction">Lukk</button>
+      </div>
     </div>
   </div>
 

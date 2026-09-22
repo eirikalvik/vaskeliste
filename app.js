@@ -480,22 +480,50 @@ const CollectiveAuthManager = {
   STORAGE_ACTIVE_ID_KEY: 'vaske_active_collective_id',
 
   getRegistry() {
+    let list = [];
     try {
       const raw = localStorage.getItem(this.STORAGE_REGISTRY_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) list = parsed;
       }
     } catch (e) {
       console.warn('Failed to parse collective registry', e);
     }
 
-    // Auto-detect existing single-collective data or seed default
-    const defaultList = [
-      { id: 'mitt_kollektiv', name: 'Mitt Kollektiv', lastActive: Date.now() }
-    ];
-    this.saveRegistry(defaultList);
-    return defaultList;
+    // Strictly deduplicate by ID and normalized lowercase name
+    const seenIds = new Set();
+    const seenNames = new Set();
+    const cleanList = [];
+    for (const item of list) {
+      if (!item || !item.id) continue;
+      const normName = (item.name || '').trim().toLowerCase();
+      if (!seenIds.has(item.id) && !seenNames.has(normName)) {
+        seenIds.add(item.id);
+        if (normName) seenNames.add(normName);
+        cleanList.push(item);
+      }
+    }
+
+    if (cleanList.length > 0) {
+      if (cleanList.length !== list.length) {
+        this.saveRegistry(cleanList);
+      }
+      return cleanList;
+    }
+
+    // Only seed default placeholder on very first app initialization
+    const hasEverInitialized = localStorage.getItem('vaske_app_has_initialized');
+    if (!hasEverInitialized) {
+      localStorage.setItem('vaske_app_has_initialized', 'true');
+      const defaultList = [
+        { id: 'mitt_kollektiv', name: 'Mitt Kollektiv', lastActive: Date.now() }
+      ];
+      this.saveRegistry(defaultList);
+      return defaultList;
+    }
+
+    return [];
   },
 
   saveRegistry(registry) {
@@ -523,9 +551,22 @@ const CollectiveAuthManager = {
     const cleanName = nameOrAddress.trim();
     const id = slugifyCollective(cleanName);
 
+    localStorage.setItem('vaske_app_has_initialized', 'true');
     const registry = this.getRegistry();
-    const existing = registry.find(c => c.id === id);
+
+    // If registry only contains the untouched placeholder 'mitt_kollektiv', replace it!
+    const isUntouchedDefault = registry.length === 1 && 
+      registry[0].id === 'mitt_kollektiv' && 
+      !localStorage.getItem('vaske_completed_tasks') &&
+      !localStorage.getItem('vaske_mitt_kollektiv_completed_tasks');
+
+    if (isUntouchedDefault && id !== 'mitt_kollektiv') {
+      registry.length = 0;
+    }
+
+    const existing = registry.find(c => c.id === id || (c.name || '').trim().toLowerCase() === cleanName.toLowerCase());
     if (existing) {
+      existing.id = id;
       existing.name = cleanName; // Keep latest casing
       existing.lastActive = Date.now();
     } else {
@@ -552,32 +593,42 @@ const CollectiveAuthManager = {
   },
 
   deleteCollective(id) {
+    if (!id) return;
     const registry = this.getRegistry();
 
     // 1. Delete from Firestore if connected
     if (typeof CloudSyncManager !== 'undefined' && CloudSyncManager.db) {
+      CloudSyncManager.isDeletingOrRenaming = true;
+      if (CloudSyncManager.activeUnsubscribe) {
+        CloudSyncManager.activeUnsubscribe();
+        CloudSyncManager.activeUnsubscribe = null;
+      }
       CloudSyncManager.db.collection('vaskelister').doc(id).delete()
-        .catch(err => console.warn('Could not delete from Firestore:', err));
+        .then(() => {
+          setTimeout(() => { CloudSyncManager.isDeletingOrRenaming = false; }, 800);
+        })
+        .catch(err => {
+          CloudSyncManager.isDeletingOrRenaming = false;
+          console.warn('Could not delete from Firestore:', err);
+        });
     }
 
     // 2. Clean localStorage keys for this collective
+    const allKeys = Object.keys(localStorage);
     const prefix = `vaske_${id}_`;
-    for (let i = localStorage.length - 1; i >= 0; i--) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith(prefix)) {
-        localStorage.removeItem(key);
+    allKeys.forEach(k => {
+      if (k.startsWith(prefix)) {
+        localStorage.removeItem(k);
       }
-    }
+    });
+
     if (id === 'mitt_kollektiv') {
-      localStorage.removeItem('vaske_roommates');
-      localStorage.removeItem('vaske_semester_weeks');
-      localStorage.removeItem('vaske_deep_clean_tasks');
-      localStorage.removeItem('vaske_regular_tasks');
-      localStorage.removeItem('vaske_active_week_id');
+      const legacyKeys = ['roommates', 'semester_weeks', 'deep_clean_tasks', 'regular_tasks', 'active_week_id', 'schedule', 'completed_tasks', 'custom_tasks', 'deep_clean_history', 'extra_weeks'];
+      legacyKeys.forEach(lk => localStorage.removeItem(`vaske_${lk}`));
     }
 
-    // 3. Update registry
-    const updated = registry.filter(c => c.id !== id);
+    // 3. Update registry (remove matching id or slug)
+    const updated = registry.filter(c => c.id !== id && slugifyCollective(c.name) !== id);
     this.saveRegistry(updated);
 
     // 4. Handle active collective deletion
@@ -592,6 +643,9 @@ const CollectiveAuthManager = {
     } else {
       if (typeof renderSwitchModalList === 'function') {
         renderSwitchModalList();
+      }
+      if (typeof this.renderLoginView === 'function') {
+        this.renderLoginView();
       }
     }
   },
@@ -611,9 +665,10 @@ const CollectiveAuthManager = {
       throw new Error('Vennligst oppgi nytt kollektivnavn eller adresse.');
     }
 
-    // Check if cleanOld matches currentName (or currentId)
+    // Check if cleanOld matches currentName (or currentId or slug)
     const matchesName = cleanOld.toLowerCase() === currentName.toLowerCase();
-    const matchesId = slugifyCollective(cleanOld) === currentId || cleanOld.toLowerCase() === currentId.toLowerCase();
+    const oldSlug = slugifyCollective(cleanOld);
+    const matchesId = oldSlug === currentId || cleanOld.toLowerCase() === currentId.toLowerCase();
 
     if (!matchesName && !matchesId) {
       throw new Error(`Det gamle navnet stemmer ikke. Du oppga «${cleanOld}», men aktivt kollektiv er «${currentName}».`);
@@ -625,40 +680,83 @@ const CollectiveAuthManager = {
 
     const newId = slugifyCollective(cleanNew);
 
-    // 1. Copy all current localStorage data to the new prefix
+    // 1. Snapshot all keys and copy data safely to new prefix
     const oldPrefix = `vaske_${currentId}_`;
+    const oldSlugPrefix = `vaske_${oldSlug}_`;
     const newPrefix = `vaske_${newId}_`;
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith(oldPrefix)) {
-        const suffix = key.replace(oldPrefix, '');
+
+    const allKeys = Object.keys(localStorage);
+
+    allKeys.forEach(key => {
+      let suffix = null;
+      if (key.startsWith(oldPrefix)) {
+        suffix = key.substring(oldPrefix.length);
+      } else if (key.startsWith(oldSlugPrefix)) {
+        suffix = key.substring(oldSlugPrefix.length);
+      }
+      if (suffix) {
         const val = localStorage.getItem(key);
         localStorage.setItem(`${newPrefix}${suffix}`, val);
       }
+    });
+
+    // Also migrate legacy keys if renaming from 'mitt_kollektiv'
+    const legacyKeys = ['roommates', 'schedule', 'completed_tasks', 'custom_tasks', 'deep_clean_tasks', 'deep_clean_history', 'extra_weeks', 'regular_tasks', 'active_week_id', 'semester_weeks'];
+    if (currentId === 'mitt_kollektiv' || oldSlug === 'mitt_kollektiv') {
+      legacyKeys.forEach(lk => {
+        const legacyVal = localStorage.getItem(`vaske_${lk}`);
+        if (legacyVal !== null) {
+          if (localStorage.getItem(`${newPrefix}${lk}`) === null) {
+            localStorage.setItem(`${newPrefix}${lk}`, legacyVal);
+          }
+          localStorage.removeItem(`vaske_${lk}`);
+        }
+      });
     }
 
-    // 2. Remove old localStorage data
-    for (let i = localStorage.length - 1; i >= 0; i--) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith(oldPrefix)) {
+    // 2. Clean up and remove all old scoped keys
+    allKeys.forEach(key => {
+      if (key.startsWith(oldPrefix) || key.startsWith(oldSlugPrefix)) {
         localStorage.removeItem(key);
       }
-    }
+    });
 
-    // 3. Update registry
+    // 3. Update registry: strictly replace the old collective with the new one
     const registry = this.getRegistry();
-    const index = registry.findIndex(c => c.id === currentId);
-    if (index !== -1) {
-      registry[index] = { id: newId, name: cleanNew, lastActive: Date.now() };
-    } else {
-      registry.unshift({ id: newId, name: cleanNew, lastActive: Date.now() });
-    }
-    this.saveRegistry(registry);
+    const oldNameLower = cleanOld.toLowerCase();
+    const curNameLower = currentName.toLowerCase();
+    const newNameLower = cleanNew.toLowerCase();
+
+    // Filter OUT any entries that matched the old collective OR match the new one
+    const filtered = registry.filter(c => {
+      if (!c) return false;
+      const cNameLower = (c.name || '').trim().toLowerCase();
+      const isOldMatch = c.id === currentId || 
+                         c.id === oldSlug || 
+                         cNameLower === oldNameLower || 
+                         cNameLower === curNameLower;
+      const isNewMatch = c.id === newId || cNameLower === newNameLower;
+      return !isOldMatch && !isNewMatch;
+    });
+
+    // If the old one was 'mitt_kollektiv', ensure no placeholder remains
+    const cleanedRegistry = (currentId === 'mitt_kollektiv' || oldSlug === 'mitt_kollektiv')
+      ? filtered.filter(c => c.id !== 'mitt_kollektiv')
+      : filtered;
+
+    cleanedRegistry.unshift({
+      id: newId,
+      name: cleanNew,
+      lastActive: Date.now()
+    });
+
+    this.saveRegistry(cleanedRegistry);
     this.setActiveId(newId);
 
     // 4. Update Cloud Firestore if connected
     if (typeof CloudSyncManager !== 'undefined' && CloudSyncManager.db) {
       const db = CloudSyncManager.db;
+      CloudSyncManager.isDeletingOrRenaming = true;
       if (CloudSyncManager.activeUnsubscribe) {
         CloudSyncManager.activeUnsubscribe();
         CloudSyncManager.activeUnsubscribe = null;
@@ -677,9 +775,25 @@ const CollectiveAuthManager = {
       }
       db.collection('vaskelister').doc(newId).set(payload, { merge: true })
         .then(() => {
-          return db.collection('vaskelister').doc(currentId).delete();
+          const deletes = [];
+          if (currentId && currentId !== newId) {
+            deletes.push(db.collection('vaskelister').doc(currentId).delete());
+          }
+          if (oldSlug && oldSlug !== newId && oldSlug !== currentId) {
+            deletes.push(db.collection('vaskelister').doc(oldSlug).delete());
+          }
+          if ((currentId === 'mitt_kollektiv' || oldSlug === 'mitt_kollektiv') && newId !== 'mitt_kollektiv') {
+            deletes.push(db.collection('vaskelister').doc('mitt_kollektiv').delete());
+          }
+          return Promise.all(deletes);
         })
-        .catch(err => console.warn('Firestore rename sync warning:', err));
+        .then(() => {
+          setTimeout(() => { CloudSyncManager.isDeletingOrRenaming = false; }, 800);
+        })
+        .catch(err => {
+          CloudSyncManager.isDeletingOrRenaming = false;
+          console.warn('Firestore rename sync warning:', err);
+        });
     }
 
     // 5. Update app state
@@ -689,6 +803,14 @@ const CollectiveAuthManager = {
     if (window.history && window.history.replaceState) {
       const newUrl = window.location.pathname + '?kollektiv=' + encodeURIComponent(newId);
       window.history.replaceState({}, '', newUrl);
+    }
+
+    // 7. Refresh lists
+    if (typeof renderSwitchModalList === 'function') {
+      renderSwitchModalList();
+    }
+    if (typeof this.renderLoginView === 'function') {
+      this.renderLoginView();
     }
 
     return { newId, newName: cleanNew };
@@ -821,6 +943,7 @@ const CloudSyncManager = {
   activeUnsubscribe: null,
   syncTimeout: null,
   isInitialized: false,
+  isDeletingOrRenaming: false,
 
   init() {
     this.initModal();
@@ -875,8 +998,8 @@ const CloudSyncManager = {
               app.applyRemoteState(data);
             }
           } else {
-            // First time in cloud: push current local state to cloud
-            if (app && app.collectiveId === collectiveId) {
+            // First time in cloud: push current local state to cloud (only if not currently deleting or renaming)
+            if (app && app.collectiveId === collectiveId && !this.isDeletingOrRenaming) {
               this.pushToCloud(app);
             }
           }
@@ -889,7 +1012,7 @@ const CloudSyncManager = {
   },
 
   triggerSync(appInstance) {
-    if (!this.isInitialized || !this.db || !appInstance) return;
+    if (!this.isInitialized || !this.db || !appInstance || this.isDeletingOrRenaming) return;
 
     if (this.syncTimeout) {
       clearTimeout(this.syncTimeout);
@@ -900,7 +1023,7 @@ const CloudSyncManager = {
   },
 
   pushToCloud(appInstance) {
-    if (!this.db || !appInstance || !appInstance.collectiveId) return;
+    if (!this.db || !appInstance || !appInstance.collectiveId || this.isDeletingOrRenaming) return;
 
     const payload = {
       name: appInstance.collectiveName || 'Mitt Kollektiv',

@@ -1051,7 +1051,7 @@ const DeveloperManager = {
           this.closeDevModal();
           this.showDevView();
         } else {
-          alert('Feil utvikler-PIN eller passord. Standard passord er "admin" eller "eirik".');
+          alert('Feil utvikler-PIN eller passord.');
           document.getElementById('inputDevPin').focus();
         }
       });

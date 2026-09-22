@@ -470,6 +470,10 @@ function slugifyCollective(name) {
   return slug || ('kollektiv_' + Date.now());
 }
 
+function generateCollectiveId(name) {
+  return slugifyCollective(name);
+}
+
 // Collective Authentication & Management
 const CollectiveAuthManager = {
   STORAGE_REGISTRY_KEY: 'vaske_collectives_registry',
@@ -589,7 +593,7 @@ const CollectiveAuthManager = {
 
     // Check if cleanOld matches currentName (or currentId)
     const matchesName = cleanOld.toLowerCase() === currentName.toLowerCase();
-    const matchesId = generateCollectiveId(cleanOld) === currentId || cleanOld.toLowerCase() === currentId.toLowerCase();
+    const matchesId = slugifyCollective(cleanOld) === currentId || cleanOld.toLowerCase() === currentId.toLowerCase();
 
     if (!matchesName && !matchesId) {
       throw new Error(`Det gamle navnet stemmer ikke. Du oppga «${cleanOld}», men aktivt kollektiv er «${currentName}».`);
@@ -599,7 +603,7 @@ const CollectiveAuthManager = {
       throw new Error('Det nye navnet kan ikke være det samme som det gamle.');
     }
 
-    const newId = generateCollectiveId(cleanNew);
+    const newId = slugifyCollective(cleanNew);
 
     // 1. Copy all current localStorage data to the new prefix
     const oldPrefix = `vaske_${currentId}_`;

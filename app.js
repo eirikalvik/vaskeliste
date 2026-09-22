@@ -308,11 +308,15 @@ class CleaningAppState {
   }
 
   getAssigneeForWeek(weekObjOrId) {
-    if (!weekObjOrId) return this.roommates[0].name;
+    if (!weekObjOrId) return this.roommates[0]?.name || 'Ingen';
     const id = typeof weekObjOrId === 'object' ? weekObjOrId.id : String(weekObjOrId);
     const numeric = typeof weekObjOrId === 'object' ? weekObjOrId.week : (id.includes('_') ? Number(id.split('_')[1]) : Number(id));
 
-    return this.scheduleAssignments[id] || this.scheduleAssignments[numeric] || this.roommates[0].name;
+    const assigned = this.scheduleAssignments[id] || this.scheduleAssignments[numeric];
+    if (assigned !== undefined && assigned !== null && assigned !== '') {
+      return assigned;
+    }
+    return this.roommates[0]?.name || 'Ingen';
   }
 
   isTaskDone(weekId, taskId) {
@@ -1604,6 +1608,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initCalendarModal();
   initDeepCleanViewToggle();
   initScheduleExpansion();
+  initHeroAssigneeSelect();
   initAddTaskForm();
   initCollectiveAuth();
   initRenameCollectiveModal();
@@ -1658,6 +1663,7 @@ function renderCurrentWeek() {
   const weekData = app.semesterWeeks.find(w => w.id === app.activeWeekId) || app.semesterWeeks[0];
   const assigneeName = app.getAssigneeForWeek(weekData);
   const isRealCurrent = weekData.isCurrent;
+  const isHoliday = assigneeName === 'Ingen';
 
   // Hero Card update
   const pill = document.getElementById('currentWeekPill');
@@ -1666,21 +1672,61 @@ function renderCurrentWeek() {
   const liveTag = document.getElementById('heroLiveTag');
   if (liveTag) {
     liveTag.style.display = isRealCurrent ? 'inline-flex' : 'none';
+    if (isHoliday) {
+      liveTag.innerHTML = `<span class="dot-pulse"></span>🏖️ Aktiv uke (Ferie)`;
+    } else {
+      liveTag.innerHTML = `<span class="dot-pulse"></span>Aktiv uke`;
+    }
   }
 
   document.getElementById('currentDateRange').textContent = `${weekData.dates} • ${weekData.semester}`;
-  document.getElementById('heroAssigneeName').textContent = assigneeName;
-  document.getElementById('heroAvatar').textContent = assigneeName.charAt(0).toUpperCase();
-  
-  // Color the avatar appropriately
-  const rmIndex = app.roommates.findIndex(r => r.name === assigneeName);
-  const colorNum = rmIndex >= 0 ? (rmIndex % 8) + 1 : 1;
-  document.getElementById('heroAvatar').className = `assignee-avatar avatar-color-${colorNum}`;
+
+  const heroCard = document.getElementById('heroCard');
+  if (heroCard) {
+    if (isHoliday) {
+      heroCard.classList.add('hero-holiday');
+    } else {
+      heroCard.classList.remove('hero-holiday');
+    }
+  }
+
+  const heroAvatar = document.getElementById('heroAvatar');
+  const heroName = document.getElementById('heroAssigneeName');
+  const heroSub = document.getElementById('heroAssigneeSub');
+
+  if (isHoliday) {
+    heroName.textContent = 'Ingen (Ferie)';
+    heroSub.textContent = 'Ferieuke – ingen har vaskeansvar denne uken 🏖️';
+    heroAvatar.textContent = '🏖️';
+    heroAvatar.className = 'assignee-avatar avatar-holiday';
+  } else {
+    heroName.textContent = assigneeName;
+    heroSub.textContent = 'Hovedansvar for ukentlig renhold';
+    heroAvatar.textContent = assigneeName.charAt(0).toUpperCase();
+    const rmIndex = app.roommates.findIndex(r => r.name === assigneeName);
+    const colorNum = rmIndex >= 0 ? (rmIndex % 8) + 1 : 1;
+    heroAvatar.className = `assignee-avatar avatar-color-${colorNum}`;
+  }
+
+  // Populate heroAssigneeSelect
+  const heroSelect = document.getElementById('heroAssigneeSelect');
+  if (heroSelect) {
+    heroSelect.innerHTML = `
+      <option value="Ingen" ${isHoliday ? 'selected' : ''}>🏖️ Ingen (Ferie / Fri)</option>
+      <optgroup label="Beboere">
+        ${app.roommates.map(rm => `
+          <option value="${rm.name}" ${rm.name === assigneeName ? 'selected' : ''}>
+            ${rm.name}
+          </option>
+        `).join('')}
+      </optgroup>
+    `;
+  }
 
   // Week Selector Bar
   document.getElementById('selectedWeekNum').textContent = `Uke ${weekData.week} (${weekData.year})`;
   document.getElementById('selectedWeekDates').textContent = `${weekData.dates}`;
-  document.getElementById('selectedWeekPerson').textContent = `Ansvarlig: ${assigneeName}`;
+  document.getElementById('selectedWeekPerson').textContent = isHoliday ? 'Ansvarlig: Ingen (Ferie)' : `Ansvarlig: ${assigneeName}`;
 
   // "Gå til nåværende uke" shortcut button
   const jumpBtn = document.getElementById('btnJumpToCurrentWeek');
@@ -1698,6 +1744,9 @@ function renderCurrentWeek() {
 }
 
 function updateProgress() {
+  const weekData = app.semesterWeeks.find(w => w.id === app.activeWeekId) || app.semesterWeeks[0];
+  const isHoliday = app.getAssigneeForWeek(weekData) === 'Ingen';
+
   const tasks = app.getTasksForWeek(app.activeWeekId);
   const completedCount = tasks.filter(t => app.isTaskDone(app.activeWeekId, t.id)).length;
   const totalCount = tasks.length;
@@ -1708,9 +1757,19 @@ function updateProgress() {
   const progressCounter = document.getElementById('progressCounter');
   const btnToggleAllText = document.getElementById('btnToggleAllText');
 
-  if (progressFill) progressFill.style.width = `${pct}%`;
-  if (progressPct) progressPct.textContent = `${pct}%`;
-  if (progressCounter) progressCounter.textContent = `${completedCount} av ${totalCount} oppgaver fullført`;
+  if (progressFill) progressFill.style.width = isHoliday && completedCount === 0 ? '0%' : `${pct}%`;
+  if (progressPct) {
+    progressPct.textContent = isHoliday && completedCount === 0 ? 'Ferie' : `${pct}%`;
+  }
+  if (progressCounter) {
+    if (isHoliday && completedCount === 0) {
+      progressCounter.textContent = 'Ferieuke – ingen vaskeoppgaver påkrevd 🏖️';
+    } else if (isHoliday) {
+      progressCounter.textContent = `${completedCount} av ${totalCount} fullført (valgfritt under ferie)`;
+    } else {
+      progressCounter.textContent = `${completedCount} av ${totalCount} oppgaver fullført`;
+    }
+  }
   if (btnToggleAllText) {
     btnToggleAllText.textContent = completedCount === totalCount && totalCount > 0 ? 'Fjern markering' : 'Merk alle fullført';
   }
@@ -1731,7 +1790,7 @@ function updateProgress() {
   });
 
   // Confetti trigger if 100% completed
-  if (pct === 100 && totalCount > 0 && window.confetti) {
+  if (pct === 100 && totalCount > 0 && window.confetti && !isHoliday) {
     window.confetti({
       particleCount: 70,
       spread: 60,
@@ -2095,6 +2154,25 @@ function renderStatusStrip() {
    Schedule & Semester Management
    ========================================================= */
 
+function initHeroAssigneeSelect() {
+  const select = document.getElementById('heroAssigneeSelect');
+  if (!select) return;
+
+  select.addEventListener('change', (e) => {
+    const val = e.target.value;
+    if (!val) return;
+    const weekData = app.semesterWeeks.find(w => w.id === app.activeWeekId) || app.semesterWeeks[0];
+    app.scheduleAssignments[weekData.id] = val;
+    app.scheduleAssignments[weekData.week] = val;
+    app.save('vaske_schedule', app.scheduleAssignments);
+    renderCurrentWeek();
+    renderScheduleTable();
+    if (val === 'Ingen' && window.confetti) {
+      window.confetti({ particleCount: 35, spread: 50 });
+    }
+  });
+}
+
 function initScheduleExpansion() {
   const btnExpand = document.getElementById('btnExpandNextYear');
   if (btnExpand) {
@@ -2192,6 +2270,7 @@ function renderScheduleTable() {
     }
 
     const assignedPerson = app.getAssigneeForWeek(w);
+    const isHoliday = assignedPerson === 'Ingen';
     const isRealCurrent = w.isCurrent;
     const weekTasks = app.getTasksForWeek(w.id);
     const totalCount = weekTasks.length;
@@ -2199,8 +2278,20 @@ function renderScheduleTable() {
     const isAllDone = totalCount > 0 && completedCount === totalCount;
     const isPartial = completedCount > 0 && completedCount < totalCount;
 
+    if (w.id === app.activeWeekId) {
+      tr.className = isHoliday ? 'current-week-row holiday-week-row' : 'current-week-row';
+    } else if (isHoliday) {
+      tr.className = 'holiday-week-row';
+    }
+
     let statusBadge = '';
-    if (isRealCurrent) {
+    if (isHoliday) {
+      if (isRealCurrent) {
+        statusBadge = `<span class="task-tag tag-holiday"><span class="dot-pulse"></span>🏖️ Ferieuke</span>`;
+      } else {
+        statusBadge = `<span class="task-tag tag-holiday">🏖️ Ferie</span>`;
+      }
+    } else if (isRealCurrent) {
       if (isAllDone) {
         statusBadge = `<span class="status-live-tag"><span class="dot-pulse"></span>Denne uken: Fullført (${completedCount}/${totalCount})</span>`;
       } else {
@@ -2225,11 +2316,14 @@ function renderScheduleTable() {
       <td>
         <div class="person-select-wrap">
           <select data-week-id="${w.id}">
-            ${app.roommates.map(rm => `
-              <option value="${rm.name}" ${rm.name === assignedPerson ? 'selected' : ''}>
-                ${rm.name}
-              </option>
-            `).join('')}
+            <option value="Ingen" ${isHoliday ? 'selected' : ''}>🏖️ Ingen (Ferie / Fri)</option>
+            <optgroup label="Beboere">
+              ${app.roommates.map(rm => `
+                <option value="${rm.name}" ${rm.name === assignedPerson ? 'selected' : ''}>
+                  ${rm.name}
+                </option>
+              `).join('')}
+            </optgroup>
           </select>
         </div>
       </td>
@@ -2248,6 +2342,7 @@ function renderScheduleTable() {
       app.scheduleAssignments[w.id] = e.target.value;
       app.scheduleAssignments[w.week] = e.target.value;
       app.save('vaske_schedule', app.scheduleAssignments);
+      renderScheduleTable();
       if (w.id === app.activeWeekId) {
         renderCurrentWeek();
       }
@@ -2702,6 +2797,9 @@ function initRoommatesModal() {
 
     app.semesterWeeks.forEach((w, index) => {
       const current = app.scheduleAssignments[w.id];
+      if (current === 'Ingen') {
+        return; // Bevar ferieuker uendret
+      }
       const matchIdx = oldNames.indexOf(current);
       if (matchIdx !== -1 && matchIdx < app.roommates.length) {
         app.scheduleAssignments[w.id] = app.roommates[matchIdx].name;

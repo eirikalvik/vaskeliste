@@ -395,6 +395,67 @@ body {
   margin-top: 4px;
 }
 
+.assignee-details-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.assignee-name-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.hero-select-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.btn-change-assignee-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #e2e8f0;
+  border-radius: 999px;
+  padding: 4px 26px 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: var(--font-primary);
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+
+.btn-change-assignee-select:hover,
+.btn-change-assignee-select:focus {
+  background-color: rgba(255, 255, 255, 0.18);
+  border-color: var(--color-accent-light);
+  color: #fff;
+}
+
+.btn-change-assignee-select option,
+.btn-change-assignee-select optgroup {
+  background: #0f172a;
+  color: #fff;
+}
+
+.assignee-avatar.avatar-holiday {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(99, 102, 241, 0.3));
+  border: 1.5px dashed rgba(56, 189, 248, 0.65);
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.25);
+  font-size: 1.5rem;
+}
+
+.hero-card.hero-holiday {
+  border-color: rgba(56, 189, 248, 0.32);
+}
+
 /* Progress Box */
 .progress-box {
   background: var(--glass-card);
@@ -771,6 +832,13 @@ body {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--text-muted);
+}
+
+.task-tag.tag-holiday {
+  background: rgba(56, 189, 248, 0.16);
+  border: 1px solid rgba(56, 189, 248, 0.38);
+  color: #7dd3fc;
+  font-weight: 600;
 }
 
 /* Add Task Form */
@@ -1398,6 +1466,18 @@ body {
 
 .schedule-table tr.current-week-row td:first-child {
   border-left: 4px solid var(--color-accent);
+}
+
+.schedule-table tr.holiday-week-row td {
+  background: rgba(56, 189, 248, 0.05);
+}
+
+.schedule-table tr.holiday-week-row:hover td {
+  background: rgba(56, 189, 248, 0.09);
+}
+
+.schedule-table tr.holiday-week-row td:first-child {
+  border-left: 4px solid rgba(56, 189, 248, 0.65);
 }
 
 .person-select-wrap select {

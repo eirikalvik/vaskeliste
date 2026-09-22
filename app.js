@@ -463,11 +463,11 @@ function escapeHTML(str) {
 }
 
 function slugifyCollective(name) {
-  let slug = (name || '').trim().toLowerCase()
+  let slug = (name || '').trim()
     .replace(/\s+/g, '_')
-    .replace(/[^a-z0-9æøå_-]/g, '')
-    .slice(0, 50);
-  return slug || ('kollektiv_' + Date.now());
+    .replace(/[^a-zA-Z0-9æøåÆØÅ_-]/g, '')
+    .slice(0, 60);
+  return slug || ('Kollektiv_' + Date.now());
 }
 
 function generateCollectiveId(name) {
@@ -497,20 +497,20 @@ const CollectiveAuthManager = {
       (localStorage.getItem('vaske_completed_tasks') && localStorage.getItem(this.STORAGE_ACTIVE_ID_KEY) === 'mitt_kollektiv')
     );
 
-    // Strictly deduplicate by ID and normalized lowercase name, and purge dummy placeholder
+    // Strictly deduplicate by case-sensitive ID and exact name, and purge dummy placeholder
     const seenIds = new Set();
     const seenNames = new Set();
     const cleanList = [];
     for (const item of list) {
       if (!item || !item.id) continue;
       // Do not suggest auto-seeded dummy placeholder on devices that never used it
-      if (item.id === 'mitt_kollektiv' && !hasCustomMittData) {
+      if (item.id.toLowerCase() === 'mitt_kollektiv' && !hasCustomMittData) {
         continue;
       }
-      const normName = (item.name || '').trim().toLowerCase();
-      if (!seenIds.has(item.id) && !seenNames.has(normName)) {
+      const trimmedName = (item.name || '').trim();
+      if (!seenIds.has(item.id) && !seenNames.has(trimmedName)) {
         seenIds.add(item.id);
-        if (normName) seenNames.add(normName);
+        if (trimmedName) seenNames.add(trimmedName);
         cleanList.push(item);
       }
     }
@@ -561,7 +561,7 @@ const CollectiveAuthManager = {
       registry.length = 0;
     }
 
-    const existing = registry.find(c => c.id === id || (c.name || '').trim().toLowerCase() === cleanName.toLowerCase());
+    const existing = registry.find(c => c.id === id || (c.name || '').trim() === cleanName);
     if (existing) {
       existing.id = id;
       existing.name = cleanName; // Keep latest casing
@@ -663,16 +663,16 @@ const CollectiveAuthManager = {
     }
 
     // Check if cleanOld matches currentName (or currentId or slug)
-    const matchesName = cleanOld.toLowerCase() === currentName.toLowerCase();
+    const matchesName = cleanOld === currentName || cleanOld.toLowerCase() === currentName.toLowerCase();
     const oldSlug = slugifyCollective(cleanOld);
-    const matchesId = oldSlug === currentId || cleanOld.toLowerCase() === currentId.toLowerCase();
+    const matchesId = oldSlug === currentId || cleanOld === currentId || cleanOld.toLowerCase() === currentId.toLowerCase();
 
     if (!matchesName && !matchesId) {
       throw new Error(`Det gamle navnet stemmer ikke. Du oppga «${cleanOld}», men aktivt kollektiv er «${currentName}».`);
     }
 
-    if (cleanNew.toLowerCase() === currentName.toLowerCase()) {
-      throw new Error('Det nye navnet kan ikke være det samme som det gamle.');
+    if (cleanNew === currentName) {
+      throw new Error('Det nye navnet kan ikke være helt identisk med det gamle.');
     }
 
     const newId = slugifyCollective(cleanNew);
@@ -699,7 +699,7 @@ const CollectiveAuthManager = {
 
     // Also migrate legacy keys if renaming from 'mitt_kollektiv'
     const legacyKeys = ['roommates', 'schedule', 'completed_tasks', 'custom_tasks', 'deep_clean_tasks', 'deep_clean_history', 'extra_weeks', 'regular_tasks', 'active_week_id', 'semester_weeks'];
-    if (currentId === 'mitt_kollektiv' || oldSlug === 'mitt_kollektiv') {
+    if (currentId.toLowerCase() === 'mitt_kollektiv' || oldSlug.toLowerCase() === 'mitt_kollektiv') {
       legacyKeys.forEach(lk => {
         const legacyVal = localStorage.getItem(`vaske_${lk}`);
         if (legacyVal !== null) {
@@ -720,25 +720,24 @@ const CollectiveAuthManager = {
 
     // 3. Update registry: strictly replace the old collective with the new one
     const registry = this.getRegistry();
-    const oldNameLower = cleanOld.toLowerCase();
-    const curNameLower = currentName.toLowerCase();
-    const newNameLower = cleanNew.toLowerCase();
 
     // Filter OUT any entries that matched the old collective OR match the new one
     const filtered = registry.filter(c => {
       if (!c) return false;
-      const cNameLower = (c.name || '').trim().toLowerCase();
+      const cName = (c.name || '').trim();
       const isOldMatch = c.id === currentId || 
                          c.id === oldSlug || 
-                         cNameLower === oldNameLower || 
-                         cNameLower === curNameLower;
-      const isNewMatch = c.id === newId || cNameLower === newNameLower;
+                         c.id === slugifyCollective(currentName) ||
+                         cName === cleanOld || 
+                         cName === currentName ||
+                         cName.toLowerCase() === currentName.toLowerCase();
+      const isNewMatch = c.id === newId || cName === cleanNew;
       return !isOldMatch && !isNewMatch;
     });
 
     // If the old one was 'mitt_kollektiv', ensure no placeholder remains
-    const cleanedRegistry = (currentId === 'mitt_kollektiv' || oldSlug === 'mitt_kollektiv')
-      ? filtered.filter(c => c.id !== 'mitt_kollektiv')
+    const cleanedRegistry = (currentId.toLowerCase() === 'mitt_kollektiv' || oldSlug.toLowerCase() === 'mitt_kollektiv')
+      ? filtered.filter(c => (c.id || '').toLowerCase() !== 'mitt_kollektiv')
       : filtered;
 
     cleanedRegistry.unshift({
@@ -779,7 +778,12 @@ const CollectiveAuthManager = {
           if (oldSlug && oldSlug !== newId && oldSlug !== currentId) {
             deletes.push(db.collection('vaskelister').doc(oldSlug).delete());
           }
-          if ((currentId === 'mitt_kollektiv' || oldSlug === 'mitt_kollektiv') && newId !== 'mitt_kollektiv') {
+          // Also delete lowercase variant if casing was changed
+          const oldLower = currentId.toLowerCase();
+          if (oldLower !== newId && oldLower !== currentId) {
+            deletes.push(db.collection('vaskelister').doc(oldLower).delete());
+          }
+          if ((currentId.toLowerCase() === 'mitt_kollektiv' || oldSlug.toLowerCase() === 'mitt_kollektiv') && newId.toLowerCase() !== 'mitt_kollektiv') {
             deletes.push(db.collection('vaskelister').doc('mitt_kollektiv').delete());
           }
           return Promise.all(deletes);
@@ -992,6 +996,13 @@ const CloudSyncManager = {
           if (doc.exists) {
             const data = doc.data();
             if (app && app.collectiveId === collectiveId) {
+              if (data.name && data.name !== app.collectiveName) {
+                app.collectiveName = data.name;
+                const nameDisplay = document.getElementById('activeCollectiveNameDisplay');
+                if (nameDisplay) nameDisplay.textContent = data.name;
+                const dropName = document.getElementById('dropdownCurrentName');
+                if (dropName) dropName.textContent = data.name;
+              }
               app.applyRemoteState(data);
             }
           } else {

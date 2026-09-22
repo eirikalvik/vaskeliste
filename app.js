@@ -551,16 +551,16 @@ const CollectiveAuthManager = {
     }
   },
 
-  deleteCollective(id, event) {
-    if (event) event.stopPropagation();
+  deleteCollective(id) {
     const registry = this.getRegistry();
-    const target = registry.find(c => c.id === id);
-    const name = target ? target.name : 'dette kollektivet';
-    if (!confirm(`Vil du fjerne «${name}» fra denne enheten? Vaskelisten for dette kollektivet slettes.`)) {
-      return;
+
+    // 1. Delete from Firestore if connected
+    if (typeof CloudSyncManager !== 'undefined' && CloudSyncManager.db) {
+      CloudSyncManager.db.collection('vaskelister').doc(id).delete()
+        .catch(err => console.warn('Could not delete from Firestore:', err));
     }
 
-    // Clean localStorage keys for this collective
+    // 2. Clean localStorage keys for this collective
     const prefix = `vaske_${id}_`;
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const key = localStorage.key(i);
@@ -568,12 +568,32 @@ const CollectiveAuthManager = {
         localStorage.removeItem(key);
       }
     }
+    if (id === 'mitt_kollektiv') {
+      localStorage.removeItem('vaske_roommates');
+      localStorage.removeItem('vaske_semester_weeks');
+      localStorage.removeItem('vaske_deep_clean_tasks');
+      localStorage.removeItem('vaske_regular_tasks');
+      localStorage.removeItem('vaske_active_week_id');
+    }
+
+    // 3. Update registry
     const updated = registry.filter(c => c.id !== id);
     this.saveRegistry(updated);
-    if (this.getActiveId() === id) {
+
+    // 4. Handle active collective deletion
+    const wasActive = this.getActiveId() === id || (app && app.collectiveId === id);
+    if (wasActive) {
       this.setActiveId(null);
+      if (updated.length > 0) {
+        this.loginWithId(updated[0].id);
+      } else {
+        this.showLoginView();
+      }
+    } else {
+      if (typeof renderSwitchModalList === 'function') {
+        renderSwitchModalList();
+      }
     }
-    this.renderLoginView();
   },
 
   renameCollective(oldNameInput, newNameInput) {
@@ -783,28 +803,12 @@ const CollectiveAuthManager = {
               <polyline points="9 18 15 12 9 6"></polyline>
             </svg>
           </button>
-          <button type="button" class="btn-card-remove" title="Fjern fra denne enheten">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="12" x2="18" y2="18"></line>
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-            </svg>
-          </button>
         </div>
       `;
 
-      card.addEventListener('click', (e) => {
-        if (e.target.closest('.btn-card-remove')) return;
+      card.addEventListener('click', () => {
         this.loginWithId(item.id);
       });
-
-      const btnRemove = card.querySelector('.btn-card-remove');
-      if (btnRemove) {
-        btnRemove.addEventListener('click', (e) => {
-          this.deleteCollective(item.id, e);
-        });
-      }
 
       listContainer.appendChild(card);
     });
@@ -1001,12 +1005,7 @@ function initCollectiveAuth() {
     });
   }
 
-  const btnSwitch = document.getElementById('btnSwitchCollective');
-  if (btnSwitch) {
-    btnSwitch.addEventListener('click', () => {
-      CollectiveAuthManager.showLoginView();
-    });
-  }
+
 
   const btnShare = document.getElementById('btnShareCollective');
   if (btnShare) {
@@ -1105,6 +1104,197 @@ function initRenameCollectiveModal() {
       }
     }
   });
+}
+
+function openDeleteCollectiveModal(targetId, targetName) {
+  const modal = document.getElementById('deleteCollectiveModal');
+  const targetLabel = document.getElementById('deleteTargetCollectiveName');
+  const input = document.getElementById('inputDeleteConfirmName');
+  const checkbox = document.getElementById('checkDeleteConfirm');
+  const btnSubmit = document.getElementById('btnConfirmDelete');
+  const warningDesc = document.getElementById('deleteModalWarningDesc');
+  if (!modal) return;
+
+  modal.dataset.targetId = targetId;
+  modal.dataset.targetName = targetName;
+
+  if (targetLabel) targetLabel.textContent = targetName;
+  if (warningDesc) {
+    warningDesc.textContent = `Alle oppgaver, avkryssinger, historikk og beboere for «${targetName}» slettes permanent både på denne enheten og i skyen. Handlingen kan ikke angres.`;
+  }
+  if (input) {
+    input.value = '';
+    input.placeholder = `Skriv nøyaktig "${targetName}"`;
+  }
+  if (checkbox) checkbox.checked = false;
+  if (btnSubmit) btnSubmit.disabled = true;
+
+  const validate = () => {
+    const nameMatches = input && input.value.trim().toLowerCase() === targetName.trim().toLowerCase();
+    const isChecked = checkbox && checkbox.checked;
+    if (btnSubmit) {
+      btnSubmit.disabled = !(nameMatches && isChecked);
+    }
+  };
+
+  input.oninput = validate;
+  checkbox.onchange = validate;
+
+  modal.classList.add('active');
+  setTimeout(() => { if (input) input.focus(); }, 120);
+}
+
+function initDeleteCollectiveModal() {
+  const modal = document.getElementById('deleteCollectiveModal');
+  const btnClose = document.getElementById('btnCloseDeleteModal');
+  const btnCancel = document.getElementById('btnCancelDeleteModal');
+  const form = document.getElementById('formDeleteCollective');
+  const btnDirectHeaderDelete = document.getElementById('btnDeleteCollective');
+
+  if (!modal || !form) return;
+
+  const closeModal = () => modal.classList.remove('active');
+
+  if (btnClose) btnClose.addEventListener('click', closeModal);
+  if (btnCancel) btnCancel.addEventListener('click', closeModal);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+
+  // Direct trigger from header action pill
+  if (btnDirectHeaderDelete) {
+    btnDirectHeaderDelete.addEventListener('click', () => {
+      if (!app || !app.collectiveId) return;
+      openDeleteCollectiveModal(app.collectiveId, app.collectiveName || 'Mitt Kollektiv');
+    });
+  }
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const targetId = modal.dataset.targetId;
+    const targetName = modal.dataset.targetName || 'kollektivet';
+    if (!targetId) return;
+
+    if (!confirm(`SISTE ADVARSEL: Er du helt sikker på at du vil slette «${targetName}» for godt? Alle data slettes umiddelbart.`)) {
+      return;
+    }
+
+    CollectiveAuthManager.deleteCollective(targetId);
+    closeModal();
+    const switchModal = document.getElementById('switchCollectiveModal');
+    if (switchModal) switchModal.classList.remove('active');
+    alert(`Kollektivet «${targetName}» er nå slettet.`);
+  });
+}
+
+function renderSwitchModalList() {
+  const listEl = document.getElementById('switchCollectivesList');
+  if (!listEl) return;
+  const registry = CollectiveAuthManager.getRegistry();
+  const currentId = app ? app.collectiveId : CollectiveAuthManager.getActiveId();
+
+  if (!registry || registry.length === 0) {
+    listEl.innerHTML = '<p class="text-muted" style="font-size: 0.85rem; padding: 12px;">Ingen lagrede kollektiv funnet.</p>';
+    return;
+  }
+
+  listEl.innerHTML = '';
+  registry.forEach(item => {
+    const isActive = item.id === currentId;
+    let rmCount = 3;
+    try {
+      const stored = localStorage.getItem(`vaske_${item.id}_roommates`) || 
+        (item.id === 'mitt_kollektiv' ? localStorage.getItem('vaske_roommates') : null);
+      if (stored) rmCount = JSON.parse(stored).length;
+    } catch (e) {}
+
+    const lastActiveDate = item.lastActive ? new Date(item.lastActive) : null;
+    let timeText = 'Nylig';
+    if (lastActiveDate) {
+      timeText = formatNorwegianDate(formatDateToInputString(lastActiveDate));
+    }
+
+    const row = document.createElement('div');
+    row.className = `switch-col-item ${isActive ? 'active-col-item' : ''}`;
+    row.innerHTML = `
+      <div class="switch-col-left">
+        <span class="switch-col-icon">🏠</span>
+        <div class="switch-col-info">
+          <div class="switch-col-name-row">
+            <strong>${escapeHTML(item.name)}</strong>
+            ${isActive ? '<span class="active-col-badge">Aktiv nå ✓</span>' : ''}
+          </div>
+          <p class="switch-col-meta">👥 ${rmCount} beboere • ${timeText}</p>
+        </div>
+      </div>
+      <div class="switch-col-actions">
+        ${!isActive ? `<button type="button" class="btn btn-sm btn-glass btn-switch-to" data-id="${item.id}">Bytt</button>` : ''}
+        <button type="button" class="btn-danger-ghost btn-trigger-delete" data-id="${item.id}" data-name="${escapeHTML(item.name)}" title="Slett dette kollektivet">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+          <span>Slett...</span>
+        </button>
+      </div>
+    `;
+
+    // Handle Switch
+    const btnSwitchTo = row.querySelector('.btn-switch-to');
+    if (btnSwitchTo) {
+      btnSwitchTo.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const modal = document.getElementById('switchCollectiveModal');
+        if (modal) modal.classList.remove('active');
+        CollectiveAuthManager.loginWithId(item.id);
+      });
+    }
+
+    // Handle Delete Trigger (opens double confirmation)
+    const btnDel = row.querySelector('.btn-trigger-delete');
+    if (btnDel) {
+      btnDel.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openDeleteCollectiveModal(item.id, item.name);
+      });
+    }
+
+    listEl.appendChild(row);
+  });
+}
+
+function initSwitchCollectiveModal() {
+  const modal = document.getElementById('switchCollectiveModal');
+  const btnOpen = document.getElementById('btnSwitchCollective');
+  const btnClose = document.getElementById('btnCloseSwitchModal');
+  const btnOpenOther = document.getElementById('btnSwitchOpenOther');
+
+  if (!modal) return;
+
+  const openModal = () => {
+    renderSwitchModalList();
+    modal.classList.add('active');
+  };
+
+  const closeModal = () => modal.classList.remove('active');
+
+  if (btnOpen) {
+    btnOpen.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openModal();
+    });
+  }
+  if (btnClose) btnClose.addEventListener('click', closeModal);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+
+  if (btnOpenOther) {
+    btnOpenOther.addEventListener('click', () => {
+      closeModal();
+      CollectiveAuthManager.showLoginView();
+    });
+  }
 }
 
 function initColMoreToggle() {
@@ -1617,6 +1807,8 @@ document.addEventListener('DOMContentLoaded', () => {
   initCollectiveAuth();
   initRenameCollectiveModal();
   initColMoreToggle();
+  initSwitchCollectiveModal();
+  initDeleteCollectiveModal();
   CloudSyncManager.init();
   DeveloperManager.init();
   initLegalModal();

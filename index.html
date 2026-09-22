@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="icon.svg">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#10b981">
-  <link rel="stylesheet" href="style.css?v=2.3">
+  <link rel="stylesheet" href="style.css?v=2.4">
   <!-- Canvas Confetti for task completion celebration -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
@@ -255,11 +255,18 @@
             </svg>
             <span>Endre navn</span>
           </button>
-          <button type="button" class="btn-col-action btn-switch-collective" id="btnSwitchCollective" title="Bytt kollektiv">
+          <button type="button" class="btn-col-action btn-switch-collective" id="btnSwitchCollective" title="Bytt eller administrer kollektiv">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
               <path d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/>
             </svg>
             <span>Bytt kollektiv</span>
+          </button>
+          <button type="button" class="btn-col-action btn-delete-collective" id="btnDeleteCollective" title="Slett dette kollektivet med dobbel godkjenning">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+            <span>Slett kollektiv</span>
           </button>
         </div>
       </div>
@@ -671,6 +678,101 @@
     </div>
   </div>
 
+  <!-- Modal: Bytt kollektiv & Administrer -->
+  <div class="modal-overlay" id="switchCollectiveModal">
+    <div class="modal-card switch-collective-card">
+      <div class="modal-header">
+        <div class="modal-title-with-icon">
+          <span class="modal-title-icon">🔄</span>
+          <div>
+            <h3 class="modal-title">Bytt kollektiv</h3>
+            <p class="modal-subtitle-text">Velg et annet kollektiv eller administrer dine lagrede kollektiv</p>
+          </div>
+        </div>
+        <button class="modal-close-btn" id="btnCloseSwitchModal">&times;</button>
+      </div>
+
+      <div class="switch-col-section">
+        <h4 class="switch-section-title">Lagrede kollektiv på denne enheten</h4>
+        <div class="switch-collectives-list" id="switchCollectivesList">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </div>
+
+      <div class="switch-modal-footer">
+        <button type="button" class="btn btn-glass-secondary btn-switch-open-new" id="btnSwitchOpenOther">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>Åpne eller opprett et annet kollektiv</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Slett kollektiv med dobbel godkjenning -->
+  <div class="modal-overlay" id="deleteCollectiveModal">
+    <div class="modal-card delete-collective-card">
+      <div class="modal-header">
+        <div class="modal-title-with-icon">
+          <span class="modal-title-icon">🗑️</span>
+          <div>
+            <h3 class="modal-title" style="color: var(--color-rose);">Slett kollektiv</h3>
+            <p class="modal-subtitle-text">Permanent sletting krever dobbel godkjenning</p>
+          </div>
+        </div>
+        <button class="modal-close-btn" id="btnCloseDeleteModal">&times;</button>
+      </div>
+
+      <div class="delete-warning-banner">
+        <div class="delete-warning-icon">⚠️</div>
+        <div class="delete-warning-text">
+          <strong>Advarsel: Dette kan ikke angres!</strong>
+          <p id="deleteModalWarningDesc">Alle oppgaver, avkryssinger, historikk og beboerlister for dette kollektivet slettes permanent både på denne enheten og i skyen.</p>
+        </div>
+      </div>
+
+      <form id="formDeleteCollective" class="delete-collective-form">
+        <!-- Godkjenning 1: Skriv inn kollektivets navn -->
+        <div class="form-group-delete">
+          <label for="inputDeleteConfirmName" class="form-label-delete">
+            1. Godkjenning: Skriv inn navnet på kollektivet:
+            <strong id="deleteTargetCollectiveName" class="delete-target-highlight">Mitt Kollektiv</strong>
+          </label>
+          <input 
+            type="text" 
+            id="inputDeleteConfirmName" 
+            class="delete-input" 
+            placeholder="Skriv inn kollektivnavn nøyaktig..." 
+            autocomplete="off" 
+            required
+          >
+          <span class="input-hint-delete" id="deleteNameMatchHint">Navnet må stemme nøyaktig.</span>
+        </div>
+
+        <!-- Godkjenning 2: Avkryssing -->
+        <div class="form-group-delete checkbox-group">
+          <label class="delete-checkbox-label">
+            <input type="checkbox" id="checkDeleteConfirm" class="delete-checkbox">
+            <span>2. Godkjenning: Jeg forstår at alle vaskedata og beboere slettes for godt for alle i kollektivet.</span>
+          </label>
+        </div>
+
+        <div class="modal-actions delete-modal-actions">
+          <button type="button" class="btn btn-glass-secondary" id="btnCancelDeleteModal">Avbryt</button>
+          <button type="submit" class="btn btn-danger-solid" id="btnConfirmDelete" disabled>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+            <span>Slett kollektivet for godt</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Modal: Rediger Beboere -->
   <div class="modal-overlay" id="roommatesModal">
     <div class="modal-card">
@@ -1007,7 +1109,7 @@
   <!-- Firebase Cloud Sync SDKs -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=2.3"></script>
-  <script src="app.js?v=2.3"></script>
+  <script src="firebase-config.js?v=2.4"></script>
+  <script src="app.js?v=2.4"></script>
 </body>
 </html>

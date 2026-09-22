@@ -1354,6 +1354,60 @@ const DeveloperManager = {
   }
 };
 
+function initLegalModal() {
+  const modal = document.getElementById('legalModal');
+  const btnClose = document.getElementById('btnCloseLegalModal');
+  const btnConfirm = document.getElementById('btnConfirmCloseLegal');
+  const tabButtons = document.querySelectorAll('.legal-tab-btn');
+  const contents = {
+    privacy: document.getElementById('legalContentPrivacy'),
+    terms: document.getElementById('legalContentTerms'),
+    cookies: document.getElementById('legalContentCookies')
+  };
+
+  if (!modal) return;
+  const closeModal = () => modal.classList.remove('active');
+
+  const switchTab = (tabName) => {
+    tabButtons.forEach(btn => {
+      if (btn.getAttribute('data-tab') === tabName) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+
+    Object.keys(contents).forEach(key => {
+      if (contents[key]) {
+        contents[key].style.display = key === tabName ? 'block' : 'none';
+      }
+    });
+  };
+
+  tabButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = btn.getAttribute('data-tab');
+      switchTab(tab);
+    });
+  });
+
+  // Attach listener to all trigger buttons across app (footer, login, dev)
+  document.querySelectorAll('[data-legal-tab]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const targetTab = btn.getAttribute('data-legal-tab') || 'privacy';
+      switchTab(targetTab);
+      modal.classList.add('active');
+    });
+  });
+
+  if (btnClose) btnClose.addEventListener('click', closeModal);
+  if (btnConfirm) btnConfirm.addEventListener('click', closeModal);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+}
+
 function renderAllViews() {
   if (!app) return;
   renderHeaderRoommates();
@@ -1376,6 +1430,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initCollectiveAuth();
   CloudSyncManager.init();
   DeveloperManager.init();
+  initLegalModal();
 
   // Check URL query parameters for direct collective sharing or developer view
   const urlParams = new URLSearchParams(window.location.search);

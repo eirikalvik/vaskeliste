@@ -1812,12 +1812,201 @@ body {
   gap: 10px;
 }
 
-/* Footer */
+/* Footer & Legal */
 .app-footer {
   text-align: center;
-  padding: 30px 0 10px;
+  padding: 40px 0 24px;
   color: var(--text-muted);
   font-size: 0.85rem;
+  border-top: 1px solid var(--glass-border-subtle);
+  margin-top: 40px;
+}
+
+.footer-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.footer-copy {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.footer-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn-footer-link {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: all 0.2s ease;
+}
+
+.btn-footer-link:hover {
+  color: #fff;
+  text-decoration-color: var(--color-accent);
+}
+
+.footer-sep {
+  opacity: 0.35;
+  font-size: 0.75rem;
+}
+
+/* Login legal chip */
+.login-legal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--glass-border-subtle);
+  flex-wrap: wrap;
+}
+
+.btn-legal-chip {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 3px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.btn-legal-chip:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.legal-dot {
+  opacity: 0.35;
+  font-size: 0.7rem;
+}
+
+/* Dev footer legal */
+.dev-footer-legal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 32px;
+  padding-top: 18px;
+  border-top: 1px solid var(--glass-border-subtle);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+
+/* Legal Modal */
+.legal-modal-card {
+  max-width: 680px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.legal-tabs-bar {
+  display: flex;
+  gap: 8px;
+  margin: 16px 0 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--glass-border-subtle);
+  overflow-x: auto;
+}
+
+.legal-tab-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border-subtle);
+  color: var(--text-secondary);
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.legal-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.legal-tab-btn.active {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: var(--color-accent-light);
+}
+
+.legal-content-body {
+  overflow-y: auto;
+  padding-right: 6px;
+  text-align: left;
+  line-height: 1.6;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+}
+
+.legal-section-block {
+  margin-bottom: 22px;
+}
+
+.legal-section-block h4 {
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legal-section-block p {
+  margin-bottom: 8px;
+}
+
+.legal-section-block ul {
+  padding-left: 22px;
+  margin-bottom: 10px;
+}
+
+.legal-section-block li {
+  margin-bottom: 4px;
+}
+
+.legal-highlight-box {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  margin: 14px 0;
+  color: #e2e8f0;
+}
+
+.legal-highlight-box.amber {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.25);
 }
 
 /* Responsive Adjustments */

@@ -114,6 +114,20 @@
           <span>Utvikler / Admin-modus</span>
         </button>
       </div>
+
+      <!-- Legal & Privacy Footer in Login -->
+      <div class="login-legal-footer">
+        <button type="button" class="btn-legal-chip" data-legal-tab="privacy">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <span>Personvern & Databehandling</span>
+        </button>
+        <span class="legal-dot">•</span>
+        <button type="button" class="btn-legal-chip" data-legal-tab="terms">
+          <span>© 2026 Opphavsrett & Vilkår</span>
+        </button>
+      </div>
     </div>
   </div>
 
@@ -169,6 +183,15 @@
       <!-- Collectives List Container -->
       <div class="dev-collectives-grid" id="devCollectivesGrid">
         <!-- Rendered dynamically via JS -->
+      </div>
+
+      <!-- Developer Legal Footer -->
+      <div class="dev-footer-legal">
+        <span>© 2026 Vaskeliste Kollektivet • Utvikler-dashbord</span>
+        <span class="footer-sep">•</span>
+        <button type="button" class="btn-footer-link" data-legal-tab="privacy">Personvern & GDPR</button>
+        <span class="footer-sep">•</span>
+        <button type="button" class="btn-footer-link" data-legal-tab="terms">Opphavsrett</button>
       </div>
     </div>
   </div>
@@ -537,7 +560,16 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Kollektivets Vaskeapp • Laget for et rent og trivelig hjem ✨</p>
+      <div class="footer-content">
+        <p class="footer-copy">© 2026 Vaskeliste Kollektivet • Laget for et rent og trivelig hjem ✨</p>
+        <div class="footer-links">
+          <button type="button" class="btn-footer-link" data-legal-tab="privacy">Personvern & Datainnsamling</button>
+          <span class="footer-sep">•</span>
+          <button type="button" class="btn-footer-link" data-legal-tab="terms">Opphavsrett & Vilkår</button>
+          <span class="footer-sep">•</span>
+          <button type="button" class="btn-footer-link" data-legal-tab="cookies">Cookies & Lagring</button>
+        </div>
+      </div>
     </footer>
   </div>
 
@@ -770,6 +802,114 @@
       <div class="modal-actions">
         <button type="button" class="btn btn-glass-secondary" id="btnCopyJson">Kopier JSON</button>
         <button type="button" class="btn btn-primary" id="btnCloseJsonAction">Lukk</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Personvern, Opphavsrett og Vilkår -->
+  <div class="modal-overlay" id="legalModal">
+    <div class="modal-card legal-modal-card">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title" id="legalModalMainTitle">Personvern og Juridisk Informasjon</h3>
+          <p class="modal-desc">Informasjon om datainnsamling, opphavsrett og brukervilkår</p>
+        </div>
+        <button class="modal-close-btn" id="btnCloseLegalModal">&times;</button>
+      </div>
+
+      <!-- Legal Navigation Tabs -->
+      <div class="legal-tabs-bar">
+        <button type="button" class="legal-tab-btn active" data-tab="privacy" id="tabBtnPrivacy">
+          <span>🛡️</span>
+          <span>Personvern & GDPR</span>
+        </button>
+        <button type="button" class="legal-tab-btn" data-tab="terms" id="tabBtnTerms">
+          <span>📜</span>
+          <span>Opphavsrett & Vilkår</span>
+        </button>
+        <button type="button" class="legal-tab-btn" data-tab="cookies" id="tabBtnCookies">
+          <span>🍪</span>
+          <span>Cookies & Lagring</span>
+        </button>
+      </div>
+
+      <!-- Tab 1: Personvernerklæring & Datainnsamling -->
+      <div class="legal-content-body" id="legalContentPrivacy">
+        <div class="legal-section-block">
+          <h4>🛡️ 1. Hvilke opplysninger samler vi inn?</h4>
+          <p>Denne applikasjonen er bygget etter et strengt prinsipp om <strong>dataminimering</strong>. Vi samler utelukkende inn de dataene dere selv oppgir for å administrere kollektivets renhold:</p>
+          <ul>
+            <li><strong>Kollektiv-identifikator:</strong> Valgt kollektivnavn eller adresse (f.eks. «Munkegata 14»).</li>
+            <li><strong>Beboere:</strong> Fornavn/kallenavn på beboere i kollektivet for rotasjon av oppgaver.</li>
+            <li><strong>Oppgavestatus:</strong> Avkryssinger for ukentlige vaskeoppgaver, egendefinerte oppgaver og datoer for dypvask/sjeldnere oppgaver.</li>
+          </ul>
+          <div class="legal-highlight-box">
+            ✅ <strong>Ingen sensitive data:</strong> Vi ber aldri om, og samler aldri inn, passord, betalingskort, e-post, telefonnummer, personnummer eller posisjonsdata.
+          </div>
+        </div>
+
+        <div class="legal-section-block">
+          <h4>🔒 2. Hvordan og hvor lagres dataene?</h4>
+          <p><strong>Lokal lagring (standard):</strong> Inntil sky-synkronisering aktiveres, lagres alle data 100% lokalt i din egen nettleser via <code>localStorage</code>. Ingen informasjon sendes ut av din enhet.</p>
+          <p><strong>Sky-synkronisering (valgfritt):</strong> Hvis dere aktiverer Google Firebase Firestore for sanntidsdeling mellom beboere, overføres opplysningene kryptert (HTTPS/TLS) til sky-databasen og lagres i henhold til Googles strenge GDPR- og personvernstandarder.</p>
+        </div>
+
+        <div class="legal-section-block">
+          <h4>🚫 3. Ingen sporing eller videresalg</h4>
+          <p>Dataene tilhører kollektivet. Vi selger, leier eller deler <strong>aldri</strong> data med tredjeparter. Det benyttes ingen kommersielle annonsenettverk eller eksterne sporere (som Google Analytics eller Meta Pixel).</p>
+        </div>
+
+        <div class="legal-section-block">
+          <h4>🗑️ 4. Sletting og innsyn (GDPR)</h4>
+          <p>Du har full rett til innsyn og sletting:</p>
+          <ul>
+            <li>Du kan når som helst slette kollektivets data direkte fra innloggingsskjermen eller ved å tømme nettleserens lagring.</li>
+            <li>Hvis Firebase er tilkoblet, kan dataene slettes direkte i Firestore eller via utviklerdashbordet.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Tab 2: Opphavsrett og Vilkår -->
+      <div class="legal-content-body" id="legalContentTerms" style="display: none;">
+        <div class="legal-section-block">
+          <h4>📜 1. Opphavsrett (Copyright)</h4>
+          <p>© 2026 <strong>Vaskeliste for Kollektivet</strong>. Utviklet av og for bofellesskap.</p>
+          <p>Kildekode, grensesnittdesign, logoer og visuelle elementer er beskyttet etter gjeldende åndsverklovgivning. Kildekoden er tilgjengelig for personlig og ikke-kommersiell bruk i kollektiv.</p>
+          <div class="legal-highlight-box amber">
+            ⚠️ Uautorisert kommersiell kopiering eller videredistribusjon som en betalt tjeneste uten forhåndssamtykke er ikke tillatt.
+          </div>
+        </div>
+
+        <div class="legal-section-block">
+          <h4>⚖️ 2. Brukervilkår og ansvarsbegrensning</h4>
+          <p>Tjenesten stilles til rådighet vederlagsfritt og «som den er» (as-is). Utvikleren påtar seg intet erstatningsansvar for eventuelle direkte eller indirekte tap, datatap, eller uenigheter som måtte oppstå mellom beboere i kollektivet ved bruk av appen.</p>
+        </div>
+
+        <div class="legal-section-block">
+          <h4>🤝 3. Akseptabel bruk</h4>
+          <p>Brukere forplikter seg til å benytte tjenesten til sitt tiltenkte formål og avstå fra å legge inn støtende, ulovlig eller krenkende innhold som kollektivnavn eller oppgavenotater.</p>
+        </div>
+      </div>
+
+      <!-- Tab 3: Cookies og Lagring -->
+      <div class="legal-content-body" id="legalContentCookies" style="display: none;">
+        <div class="legal-section-block">
+          <h4>🍪 Informasjonskapsler (Cookies) og lokal lagring</h4>
+          <p>Denne nettsiden benytter <strong>ingen tradisjonelle sporingskapsler (cookies)</strong> for markedsføring eller tredjepartsannonser.</p>
+          <p>Vi benytter utelukkende <strong>funksjonell lokal lagring (Web Storage API / localStorage)</strong>:</p>
+          <ul>
+            <li><code>vaske_collectives_registry</code>: Husker listen over dine opprettede kollektiv på enheten.</li>
+            <li><code>vaske_active_collective_id</code>: Husker hvilket kollektiv du sist åpnet for å gi en sømløs brukeropplevelse.</li>
+            <li><code>vaske_[kollektiv]_...</code>: Lagrer vaskeoppgaver og beboere lokalt på enheten slik at appen fungerer offline.</li>
+          </ul>
+          <div class="legal-highlight-box">
+            💡 Denne lagringen er strengt nødvendig for at appen skal fungere, og kan når som helst slettes via nettleserens innstillinger («Slett nettleserdata»).
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-primary" id="btnConfirmCloseLegal">Forstått og lukk</button>
       </div>
     </div>
   </div>

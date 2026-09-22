@@ -1,0 +1,17 @@
+{
+  "name": "Vaskeliste for Kollektivet",
+  "short_name": "Vaskeliste",
+  "description": "Roterende vaskeplan og ansvarsfordeling for kollektivet",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#090d16",
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

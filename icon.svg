@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="50%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#090d16"/>
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="16" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background with smooth rounded corners -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)"/>
+  <rect width="508" height="508" x="2" y="2" rx="110" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="4"/>
+
+  <!-- Glowing circle halo -->
+  <circle cx="256" cy="256" r="160" fill="rgba(16, 185, 129, 0.12)" filter="url(#glow)"/>
+
+  <!-- Main Sparkle / Star Icon -->
+  <g fill="url(#accentGrad)">
+    <!-- Central 4-point sparkle star -->
+    <path d="M 256 96 
+             C 256 180, 260 210, 310 236 
+             C 340 250, 380 256, 416 256 
+             C 380 256, 340 262, 310 276 
+             C 260 302, 256 332, 256 416 
+             C 256 332, 252 302, 202 276 
+             C 172 262, 132 256, 96 256 
+             C 132 256, 172 250, 202 236 
+             C 252 210, 256 180, 256 96 Z" />
+    <!-- Secondary small sparkle top right -->
+    <path d="M 370 120 
+             C 370 145, 375 155, 395 165 
+             C 375 175, 370 185, 370 210 
+             C 370 185, 365 175, 345 165 
+             C 365 155, 370 145, 370 120 Z" fill="#6ee7b7"/>
+    <!-- Secondary small sparkle bottom left -->
+    <path d="M 140 330 
+             C 140 350, 144 360, 160 368 
+             C 144 376, 140 386, 140 406 
+             C 140 386, 136 376, 120 368 
+             C 136 360, 140 350, 140 330 Z" fill="#6ee7b7" opacity="0.85"/>
+  </g>
+</svg>

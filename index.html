@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vaskeliste Kollektivet | Roterende Vaskeplan</title>
+  <meta name="description" content="En moderne, elegant vaskeliste og ansvarsfordeling for kollektivet med 3 beboere. Hold oversikt over ukentlige oppgaver og dypvask.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#10b981">
+  <link rel="stylesheet" href="style.css">
+  <!-- Canvas Confetti for task completion celebration -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+</head>
+<body>
+  <!-- Background Image with Ambient Glass Tint -->
+  <div class="bg-layer" id="bgLayer">
+    <div class="bg-overlay"></div>
+    <div class="ambient-glow glow-1"></div>
+    <div class="ambient-glow glow-2"></div>
+  </div>
+
+  <!-- Collective Landing / Login View -->
+  <div class="login-view-container" id="loginViewContainer">
+    <div class="login-card">
+      <div class="login-badge-wrap">
+        <div class="login-logo-glow">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+          </svg>
+        </div>
+      </div>
+
+      <h1 class="login-title">Vaskeliste for Kollektivet</h1>
+      <p class="login-subtitle">Enkel, rettferdig og roterende vaskeplan for bofellesskap</p>
+
+      <form id="formCollectiveLogin" class="login-form">
+        <div class="login-input-group">
+          <label for="inputCollectiveName" class="login-label">
+            <span class="label-text">Adresse eller kollektivnavn</span>
+            <span class="label-sub">Uten passord</span>
+          </label>
+          <div class="login-input-wrapper">
+            <span class="login-input-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+              </svg>
+            </span>
+            <input 
+              type="text" 
+              id="inputCollectiveName" 
+              class="login-input" 
+              placeholder="F.eks. Munkegata 14 eller Superkollektivet" 
+              autocomplete="off"
+              required
+            >
+          </div>
+          <p class="login-hint">Flere kollektiv kan bruke denne appen. Skriv inn adresse eller et eget brukernavn for å åpne kollektivets egen vaskeliste.</p>
+        </div>
+
+        <button type="submit" class="btn btn-accent btn-login-submit" id="btnLoginSubmit">
+          <span>Åpne kollektivets vaskeliste</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </button>
+      </form>
+
+      <!-- Saved Collectives Section -->
+      <div class="saved-collectives-section" id="savedCollectivesSection" style="display: none;">
+        <div class="saved-col-header">
+          <div class="saved-col-title-wrap">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+              <polyline points="17 21 17 13 7 13 7 21"></polyline>
+              <polyline points="7 3 7 8 15 8"></polyline>
+            </svg>
+            <span class="saved-col-title">Tidligere brukte kollektiv på denne enheten</span>
+          </div>
+        </div>
+        <div class="saved-collectives-list" id="savedCollectivesList">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </div>
+
+      <!-- Feature highlights -->
+      <div class="login-feature-strip">
+        <div class="login-feat-item">
+          <span class="feat-icon">🔄</span>
+          <span class="feat-text">Roterende vaskeansvar</span>
+        </div>
+        <div class="login-feat-item">
+          <span class="feat-icon">🗓️</span>
+          <span class="feat-text">Hele året t.o.m. uke 52</span>
+        </div>
+        <div class="login-feat-item">
+          <span class="feat-icon">👥</span>
+          <span class="feat-text">Tilpass antall beboere</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-container" id="mainAppContainer" style="display: none;">
+    <!-- Navigation / Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-title-wrap">
+            <h1 class="brand-title">Vaskeliste Kollektivet</h1>
+            <div class="collective-status-pill" id="activeCollectivePill" title="Aktivt kollektiv">
+              <span class="col-pill-icon">🏠</span>
+              <span class="col-pill-name" id="activeCollectiveNameDisplay">Mitt Kollektiv</span>
+              <button type="button" class="btn-switch-collective" id="btnSwitchCollective" title="Bytt kollektiv eller logg inn på et annet">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/>
+                </svg>
+                <span>Bytt</span>
+              </button>
+            </div>
+          </div>
+          <p class="brand-subtitle" id="brandSubtitle">Høst 2026 • 3 Beboere</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div class="roommates-quick-list" id="roommatesQuickList" title="Beboere">
+          <!-- Populated by JS -->
+        </div>
+        <button id="btnCloudSyncStatus" class="btn btn-glass btn-sync-status" title="Sky-synkronisering & deling">
+          <span class="sync-indicator-dot sync-offline" id="syncIndicatorDot"></span>
+          <span id="syncStatusLabel">Lokal</span>
+        </button>
+        <button id="btnEditRoommates" class="btn btn-glass" title="Rediger beboere">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+          <span id="btnRoommatesLabel">Beboere (3)</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Hero: Current Week Banner -->
+    <section class="hero-card" id="heroCard">
+      <div class="hero-left">
+        <div class="week-badge-row">
+          <span class="pill-badge current-pill" id="currentWeekPill">Uke 39</span>
+          <span class="date-range" id="currentDateRange">21. september – 27. september</span>
+          <span class="status-live-tag" id="heroLiveTag"><span class="dot-pulse"></span>Aktiv uke</span>
+        </div>
+        <div class="hero-assignee-info">
+          <p class="section-microtitle">Ansvarlig denne uken</p>
+          <div class="assignee-display">
+            <div class="assignee-avatar" id="heroAvatar">E</div>
+            <div>
+              <h2 class="assignee-name" id="heroAssigneeName">Eirik</h2>
+              <p class="assignee-subtext" id="heroAssigneeSub">Hovedansvar for ukentlig renhold</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-right">
+        <div class="progress-box">
+          <div class="progress-labels">
+            <span class="progress-title">Ukens fremgang</span>
+            <span class="progress-pct" id="progressPct">0%</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" id="progressFill" style="width: 0%;"></div>
+          </div>
+          <p class="progress-counter" id="progressCounter">0 av 8 oppgaver fullført</p>
+        </div>
+
+        <div class="hero-actions">
+          <button class="btn btn-accent" id="btnToggleAll">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            <span id="btnToggleAllText">Merk alle fullført</span>
+          </button>
+          <button class="btn btn-glass-secondary" id="btnResetWeek">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+              <path d="M3 3v5h5"/>
+            </svg>
+            <span>Nullstill</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Navigation Tabs -->
+    <nav class="view-tabs" id="viewTabs">
+      <button class="tab-btn active" data-tab="weekly" id="tabWeekly">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 11l3 3L22 4"/>
+          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+        </svg>
+        <span>Ukentlige Oppgaver</span>
+      </button>
+      <button class="tab-btn" data-tab="deepclean" id="tabDeepClean">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m14 12 6-6m-4 10 4-4"/>
+          <path d="M3 21v-4a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v4"/>
+          <path d="M9 7a4 4 0 1 1 8 0"/>
+        </svg>
+        <span>Sjeldnere Oppgaver (Dypvask)</span>
+      </button>
+      <button class="tab-btn" data-tab="schedule" id="tabSchedule">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+          <line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/>
+          <line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+        <span>Rullerende Vaskeplan</span>
+      </button>
+    </nav>
+
+    <!-- TAB 1: Ukentlige Oppgaver -->
+    <section class="tab-content active" id="tabContentWeekly">
+      <!-- Week Selector Bar -->
+      <div class="week-picker-bar">
+        <button class="week-nav-btn" id="btnPrevWeek" title="Forrige uke">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </button>
+        <div class="selected-week-display">
+          <span class="selected-week-num" id="selectedWeekNum">Uke 39</span>
+          <span class="selected-week-dates" id="selectedWeekDates">21. sep – 27. sep</span>
+          <span class="selected-week-person" id="selectedWeekPerson">Ansvarlig: Eirik</span>
+          <button class="btn btn-glass-secondary btn-sm-jump" id="btnJumpToCurrentWeek" style="display: none;">
+            <span>Gå til nåværende uke</span>
+          </button>
+        </div>
+        <button class="week-nav-btn" id="btnNextWeek" title="Neste uke">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Task Categories Grid -->
+      <div class="task-categories-grid">
+        <!-- Kitchen Category -->
+        <article class="category-card" id="cardKitchen">
+          <div class="category-header">
+            <div class="category-icon-title">
+              <span class="cat-icon cat-kitchen">🍳</span>
+              <div>
+                <h3 class="category-title">Kjøkken</h3>
+                <span class="category-subtitle">Ren og innbydende matlaging</span>
+              </div>
+            </div>
+            <span class="category-badge" id="badgeKitchen">0/2</span>
+          </div>
+          <ul class="task-list" id="taskListKitchen">
+            <!-- Populated via JS -->
+          </ul>
+        </article>
+
+        <!-- Bathroom Category -->
+        <article class="category-card" id="cardBathroom">
+          <div class="category-header">
+            <div class="category-icon-title">
+              <span class="cat-icon cat-bathroom">🚿</span>
+              <div>
+                <h3 class="category-title">Bad & Toalett</h3>
+                <span class="category-subtitle">Friskt og hygienisk</span>
+              </div>
+            </div>
+            <span class="category-badge" id="badgeBathroom">0/4</span>
+          </div>
+          <ul class="task-list" id="taskListBathroom">
+            <!-- Populated via JS -->
+          </ul>
+        </article>
+
+        <!-- General & Living Category -->
+        <article class="category-card" id="cardGeneral">
+          <div class="category-header">
+            <div class="category-icon-title">
+              <span class="cat-icon cat-general">🛋️</span>
+              <div>
+                <h3 class="category-title">Generelt & Fellesrom</h3>
+                <span class="category-subtitle">Stue, gang og overflater</span>
+              </div>
+            </div>
+            <span class="category-badge" id="badgeGeneral">0/2</span>
+          </div>
+          <ul class="task-list" id="taskListGeneral">
+            <!-- Populated via JS -->
+          </ul>
+        </article>
+      </div>
+
+      <!-- Add Custom Task Bar -->
+      <div class="add-task-container">
+        <form id="formAddTask" class="add-task-form">
+          <input type="text" id="inputNewTask" placeholder="Legg til en ekstra oppgave denne uken..." required>
+          <select id="selectTaskCategory">
+            <option value="kitchen">Kjøkken</option>
+            <option value="bathroom">Bad</option>
+            <option value="general">Generelt</option>
+          </select>
+          <button type="submit" class="btn btn-primary" id="btnAddNewTask">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            <span>Legg til</span>
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- TAB 2: Sjeldnere Oppgaver (Dypvask) -->
+    <section class="tab-content" id="tabContentDeepClean">
+      <div class="deep-clean-header">
+        <div>
+          <h2 class="subpage-title">Sjeldnere Oppgaver & Vedlikehold</h2>
+          <p class="subpage-subtitle">Disse oppgavene gjøres månedlig eller ved behov for å holde leiligheten i toppstand.</p>
+        </div>
+        <div class="view-mode-toggle" id="dcViewToggle">
+          <button type="button" class="btn-toggle-view active" id="btnDcViewCards" data-mode="cards">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            <span>Kortvisning</span>
+          </button>
+          <button type="button" class="btn-toggle-view" id="btnDcViewCalendar" data-mode="calendar">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+            <span>Kalendervisning</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 1. Cards View Container -->
+      <div class="deep-clean-grid" id="deepCleanGrid">
+        <!-- Populated via JS -->
+      </div>
+
+      <!-- 2. Full Calendar View Container (Toggleable) -->
+      <div class="deep-clean-calendar-view" id="deepCleanCalendarView" style="display: none;">
+        <!-- Calendar Navigation Bar -->
+        <div class="dc-cal-nav-bar">
+          <div class="dc-cal-nav-left">
+            <button type="button" class="btn btn-glass-secondary btn-sm" id="btnDcCalPrev">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+              <span>Forrige</span>
+            </button>
+            <h3 class="dc-cal-current-month" id="dcCalCurrentMonth">September 2026</h3>
+            <button type="button" class="btn btn-glass-secondary btn-sm" id="btnDcCalNext">
+              <span>Neste</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </button>
+            <button type="button" class="btn btn-glass btn-sm" id="btnDcCalToday">I dag</button>
+          </div>
+          <div class="dc-cal-legend" id="dcCalLegend">
+            <!-- Populated via JS -->
+          </div>
+        </div>
+
+        <!-- Full Month Grid -->
+        <div class="dc-full-calendar-wrapper">
+          <div class="dc-full-cal-weekdays">
+            <span>Mandag</span>
+            <span>Tirsdag</span>
+            <span>Onsdag</span>
+            <span>Torsdag</span>
+            <span>Fredag</span>
+            <span>Lørdag</span>
+            <span>Søndag</span>
+          </div>
+          <div class="dc-full-cal-grid" id="dcFullCalGrid">
+            <!-- Generated via JS -->
+          </div>
+        </div>
+
+        <!-- Tasks Status Strip -->
+        <div class="dc-tasks-status-strip" id="dcTasksStatusStrip">
+          <!-- Populated via JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: Rullerende Vaskeplan (Schedule) -->
+    <section class="tab-content" id="tabContentSchedule">
+      <div class="schedule-header">
+        <div>
+          <h2 class="subpage-title" id="scheduleMainTitle">Vaskeplan & Semesteroversikt</h2>
+          <p class="subpage-subtitle" id="scheduleSubtitle">Rullerende vaskeliste for beboerne fra uke 36 til uke 52. Utvid til neste år ved behov.</p>
+        </div>
+        <div class="schedule-header-actions">
+          <button class="btn btn-primary" id="btnExpandNextYear">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span id="btnExpandText">+ Utvid til neste år (2027)</span>
+          </button>
+          <button class="btn btn-glass" id="btnAutoRotate">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10"/>
+              <polyline points="1 20 1 14 7 14"/>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+            </svg>
+            <span>Auto-fordel rullerende</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Semester Filter Pill Row -->
+      <div class="semester-filter-bar" id="semesterFilterBar">
+        <!-- Rendered by JS -->
+      </div>
+
+      <div class="schedule-table-wrapper">
+        <table class="schedule-table" id="scheduleTable">
+          <thead>
+            <tr>
+              <th>Uke</th>
+              <th>Datointervall</th>
+              <th>Ansvarlig person</th>
+              <th>Status</th>
+              <th>Handling</th>
+            </tr>
+          </thead>
+          <tbody id="scheduleTableBody">
+            <!-- Populated via JS -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>Kollektivets Vaskeapp • Laget for et rent og trivelig hjem ✨</p>
+    </footer>
+  </div>
+
+  <!-- Modal: Rediger Beboere -->
+  <div class="modal-overlay" id="roommatesModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Rediger Romkamerater</h3>
+        <button class="modal-close-btn" id="btnCloseModal">&times;</button>
+      </div>
+      <form id="formRoommates" class="modal-body">
+        <p class="modal-desc">Velg hvor mange som bor i kollektivet og angi navnene. Vaskeplanen og rotasjonen vil automatisk tilpasse seg.</p>
+
+        <!-- Stepper for number of roommates -->
+        <div class="count-selector-row">
+          <label class="count-label">Antall beboere:</label>
+          <div class="stepper-wrap">
+            <button type="button" class="stepper-btn" id="btnDecrementRoommates" title="Reduser antall">−</button>
+            <span class="stepper-value" id="roommateCountDisplay">3</span>
+            <button type="button" class="stepper-btn" id="btnIncrementRoommates" title="Øk antall">+</button>
+          </div>
+        </div>
+
+        <!-- Dynamic inputs container -->
+        <div class="roommates-dynamic-list" id="roommatesInputsContainer">
+          <!-- Rendered via JS -->
+        </div>
+
+        <div class="add-roommate-row">
+          <button type="button" class="btn btn-glass-secondary btn-sm" id="btnAddRoommateRow">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            <span>Legg til beboer</span>
+          </button>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-glass-secondary" id="btnCancelModal">Avbryt</button>
+          <button type="submit" class="btn btn-primary" id="btnSaveRoommates">Lagre endringer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Kalendervisning for Sjeldnere Oppgaver (Dypvask) -->
+  <div class="modal-overlay" id="calendarModal">
+    <div class="modal-card calendar-modal-card">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title" id="calModalTitle">Velg dato for oppgave</h3>
+          <p class="modal-desc" id="calModalTaskSubtitle">Registrer når denne oppgaven ble utført</p>
+        </div>
+        <button class="modal-close-btn" id="btnCloseCalModal">&times;</button>
+      </div>
+
+      <!-- Quick Presets -->
+      <div class="cal-presets">
+        <button type="button" class="preset-chip" id="presetToday">I dag</button>
+        <button type="button" class="preset-chip" id="presetYesterday">I går</button>
+        <button type="button" class="preset-chip" id="preset2Days">2 dager siden</button>
+        <button type="button" class="preset-chip" id="presetLastSunday">Forrige helg</button>
+      </div>
+
+      <!-- Visual Mini Calendar -->
+      <div class="mini-calendar-widget">
+        <div class="cal-nav-bar">
+          <button type="button" class="cal-nav-btn" id="btnCalPrevMonth" title="Forrige måned">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+          </button>
+          <span class="cal-month-title" id="calMonthTitle">September 2026</span>
+          <button type="button" class="cal-nav-btn" id="btnCalNextMonth" title="Neste måned">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="cal-weekdays-row">
+          <span>Ma</span>
+          <span>Ti</span>
+          <span>On</span>
+          <span>To</span>
+          <span>Fr</span>
+          <span>Lø</span>
+          <span>Sø</span>
+        </div>
+
+        <div class="cal-days-grid" id="calDaysGrid">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- Selected Date Feedback -->
+      <div class="cal-selected-summary">
+        <div class="cal-sel-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </div>
+        <div>
+          <span class="cal-sel-label">Valgt dato</span>
+          <p class="cal-sel-value" id="calSelectedDisplay">22. sep 2026 (I dag)</p>
+        </div>
+      </div>
+
+      <!-- Roommate & Notes Selector -->
+      <div class="cal-meta-section">
+        <div class="form-row">
+          <div class="form-col">
+            <label for="calPersonSelect">Hvem vasket / utførte oppgaven?</label>
+            <select id="calPersonSelect" class="person-select-input">
+              <!-- Populated by JS -->
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-col full-width">
+            <label for="calNoteInput">Notat (valgfritt)</label>
+            <input type="text" id="calNoteInput" class="note-input" placeholder="F.eks. renset sluk grundig og helte i klor">
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-glass-secondary" id="btnCancelCalModal">Avbryt</button>
+        <button type="button" class="btn btn-primary" id="btnSaveCalEntry">Lagre fullføring</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Sky-synkronisering (Firebase) -->
+  <div class="modal-overlay" id="cloudSyncModal">
+    <div class="modal-card sync-modal-card">
+      <div class="modal-header">
+        <div class="sync-modal-header-text">
+          <h3 class="modal-title">Sky-synkronisering (Firebase)</h3>
+          <p class="modal-desc">Del vaskeplan og oppdateringer i sanntid mellom alle telefoner helt gratis</p>
+        </div>
+        <button class="modal-close-btn" id="btnCloseSyncModal">&times;</button>
+      </div>
+
+      <div class="sync-status-banner" id="syncStatusBanner">
+        <div class="sync-banner-icon" id="syncBannerIcon">📱</div>
+        <div class="sync-banner-info">
+          <h4 id="syncBannerTitle">Lokal modus (Kun denne enheten)</h4>
+          <p id="syncBannerDesc">For at andre beboere skal se avkryssinger på sine mobiler, kan du koble til et gratis Firebase-prosjekt.</p>
+        </div>
+      </div>
+
+      <div class="sync-steps-guide">
+        <h4 class="sync-guide-title">Slik aktiverer du gratis deling (tar 2 min):</h4>
+        <ol class="sync-steps-list">
+          <li>Gå til <a href="https://console.firebase.google.com" target="_blank" rel="noopener">console.firebase.google.com</a> (100% gratis Google-tjeneste).</li>
+          <li>Opprett et prosjekt og velg <strong>Firestore Database</strong> (start i testmodus).</li>
+          <li>Legg til en <strong>Web-app (&lt;/&gt;)</strong>, kopier <code>firebaseConfig</code> og lim inn under:</li>
+        </ol>
+      </div>
+
+      <form id="formCloudSync" class="sync-config-form">
+        <div class="form-row">
+          <div class="form-col full-width">
+            <label for="inputFirebaseConfigRaw">Lim inn Firebase Config (JSON eller JavaScript):</label>
+            <textarea id="inputFirebaseConfigRaw" class="config-textarea" rows="4" placeholder='const firebaseConfig = {
+  apiKey: "AIzaSy...",
+  projectId: "ditt-prosjekt-id",
+  ...
+};'></textarea>
+          </div>
+        </div>
+
+        <div class="modal-actions sync-modal-actions">
+          <button type="button" class="btn btn-glass-secondary" id="btnDisconnectSync">Bruk kun lokal lagring</button>
+          <button type="submit" class="btn btn-primary" id="btnSaveSyncConfig">Lagre og koble til skyen</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Firebase Cloud Sync SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -129,9 +129,9 @@ body {
 /* Header */
 .app-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 24px;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 24px;
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   backdrop-filter: blur(16px);
@@ -139,19 +139,24 @@ body {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-glass);
   margin-bottom: 24px;
-  flex-wrap: wrap;
-  gap: 16px;
+}
+
+.header-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
 }
 
 .brand-icon {
-  width: 44px;
-  height: 44px;
+  width: 42px;
+  height: 42px;
   border-radius: 12px;
   background: linear-gradient(135deg, var(--color-accent) 0%, #059669 100%);
   display: flex;
@@ -159,26 +164,33 @@ body {
   justify-content: center;
   color: #fff;
   box-shadow: 0 4px 16px var(--color-accent-glow);
+  flex-shrink: 0;
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
 }
 
 .brand-title {
   font-family: var(--font-display);
-  font-size: 1.45rem;
+  font-size: 1.35rem;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: #fff;
+  line-height: 1.2;
 }
 
 .brand-subtitle {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   color: var(--text-muted);
   font-weight: 500;
 }
 
-.header-actions {
+.header-top-actions {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
 }
 
 .roommates-quick-list {
@@ -2408,101 +2420,340 @@ body {
   font-size: 0.95rem;
 }
 
-/* Collective status badge in App Header */
-.brand-title-wrap {
+/* Collective Bar */
+.collective-bar {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  width: 100%;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: var(--radius-md);
+  padding: 8px 14px;
+  gap: 12px;
+  transition: all 0.2s ease;
 }
 
-.collective-status-pill {
-  display: inline-flex;
+.col-bar-info {
+  display: flex;
   align-items: center;
-  gap: 6px;
-  background: rgba(16, 185, 129, 0.14);
-  border: 1px solid rgba(16, 185, 129, 0.32);
-  color: var(--color-accent-light);
-  border-radius: 999px;
-  padding: 4px 10px 4px 8px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
 }
 
 .col-pill-icon {
-  font-size: 0.95rem;
+  font-size: 1.05rem;
+  flex-shrink: 0;
 }
 
 .col-pill-name {
   color: #fff;
   font-weight: 700;
-  max-width: 170px;
+  font-size: 0.95rem;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.col-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.btn-col-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
   white-space: nowrap;
 }
 
+.btn-rename-collective,
 .btn-switch-collective {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #fff;
-  border-radius: 999px;
-  padding: 2px 8px;
-  font-size: 0.74rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  margin-left: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #f1f5f9;
 }
 
+.btn-rename-collective:hover,
 .btn-switch-collective:hover {
-  background: rgba(255, 255, 255, 0.25);
-  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
   transform: translateY(-1px);
 }
 
-/* Responsive adjustments */
+.btn-share-collective {
+  background: rgba(99, 102, 241, 0.18);
+  border-color: rgba(99, 102, 241, 0.35);
+  color: #a5b4fc;
+}
+
+.btn-share-collective:hover {
+  background: rgba(99, 102, 241, 0.35);
+  color: #fff;
+  border-color: rgba(99, 102, 241, 0.55);
+  transform: translateY(-1px);
+}
+
+/* Header Bottom Bar: Roommates & Quick button */
+.header-bottom-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Tab responsive labels */
+.tab-label-short {
+  display: none;
+}
+.tab-label-full {
+  display: inline;
+}
+
+/* Rename Collective Modal Form */
+.modal-title-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.modal-title-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.modal-subtitle-text {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.form-group-rename {
+  margin-bottom: 18px;
+  text-align: left;
+}
+
+.form-label-rename {
+  display: block;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin-bottom: 6px;
+}
+
+.rename-input {
+  width: 100%;
+  padding: 12px 14px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  color: #fff;
+  font-size: 0.95rem;
+  font-family: var(--font-primary);
+  transition: all 0.2s ease;
+}
+
+.rename-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
+}
+
+.input-hint-rename {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 5px;
+}
+
+.rename-error-banner {
+  background: rgba(244, 63, 94, 0.15);
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  color: #fda4af;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  font-size: 0.84rem;
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+/* =========================================================
+   Mobile UI Optimizations (max-width: 600px)
+   ========================================================= */
 @media (max-width: 600px) {
-  .app-header {
-    flex-direction: column;
-    align-items: flex-start;
+  .app-container {
+    padding: 12px 10px;
   }
 
-  .header-actions {
-    width: 100%;
-    justify-content: space-between;
+  .app-header {
+    padding: 14px 14px;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .brand {
+    gap: 10px;
+  }
+
+  .brand-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
   }
 
   .brand-title {
+    font-size: 1.15rem;
+  }
+
+  .brand-subtitle {
+    font-size: 0.76rem;
+  }
+
+  .btn-sync-status {
+    padding: 6px 10px;
+    font-size: 0.76rem;
+  }
+
+  .collective-bar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .col-bar-info {
+    justify-content: flex-start;
+  }
+
+  .col-pill-name {
+    font-size: 0.92rem;
+  }
+
+  .col-bar-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1.2fr;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .btn-col-action {
+    justify-content: center;
+    padding: 7px 6px;
+    font-size: 0.75rem;
+    min-height: 34px;
+  }
+
+  .header-bottom-bar {
+    padding-top: 8px;
+  }
+
+  .hero-card {
+    padding: 16px 14px;
+    margin-bottom: 16px;
+    border-radius: var(--radius-lg);
+  }
+
+  .week-badge-row {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .pill-badge.current-pill,
+  .status-live-tag {
+    font-size: 0.78rem;
+    padding: 4px 10px;
+  }
+
+  .date-range {
+    font-size: 0.82rem;
+  }
+
+  .assignee-card {
+    padding: 12px 12px;
+    gap: 12px;
+  }
+
+  .assignee-avatar {
+    width: 44px;
+    height: 44px;
     font-size: 1.25rem;
   }
 
+  .assignee-name {
+    font-size: 1.3rem;
+  }
+
+  .hero-actions {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .hero-actions .btn {
+    flex: 1;
+    justify-content: center;
+    padding: 11px 10px;
+    font-size: 0.82rem;
+    min-height: 42px;
+  }
+
+  /* Responsive Tabs */
+  .view-tabs {
+    padding: 4px;
+    gap: 4px;
+    margin-bottom: 16px;
+  }
+
+  .tab-btn {
+    padding: 10px 6px;
+    font-size: 0.82rem;
+    gap: 5px;
+  }
+
+  .tab-label-full {
+    display: none;
+  }
+
+  .tab-label-short {
+    display: inline;
+  }
+
+  /* Tasks list on mobile */
   .task-categories-grid {
     grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .task-item {
+    padding: 12px 14px;
+    min-height: 48px;
   }
 
   .login-card {
-    padding: 30px 20px 24px;
+    padding: 28px 16px 20px;
   }
 
   .login-title {
-    font-size: 1.5rem;
+    font-size: 1.4rem;
   }
 
   .login-feature-strip {
     flex-direction: column;
     gap: 8px;
     align-items: flex-start;
-  }
-
-  .brand-title-wrap {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
   }
 }
 

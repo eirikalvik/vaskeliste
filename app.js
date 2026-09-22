@@ -568,6 +568,104 @@ const CollectiveAuthManager = {
     this.renderLoginView();
   },
 
+  renameCollective(oldNameInput, newNameInput) {
+    if (!app) throw new Error('Ingen aktiv kollektiv-økt.');
+    const currentName = app.collectiveName || '';
+    const currentId = app.collectiveId || '';
+
+    const cleanOld = (oldNameInput || '').trim();
+    const cleanNew = (newNameInput || '').trim();
+
+    if (!cleanOld) {
+      throw new Error('Vennligst oppgi nåværende (gammelt) kollektivnavn.');
+    }
+    if (!cleanNew) {
+      throw new Error('Vennligst oppgi nytt kollektivnavn eller adresse.');
+    }
+
+    // Check if cleanOld matches currentName (or currentId)
+    const matchesName = cleanOld.toLowerCase() === currentName.toLowerCase();
+    const matchesId = generateCollectiveId(cleanOld) === currentId || cleanOld.toLowerCase() === currentId.toLowerCase();
+
+    if (!matchesName && !matchesId) {
+      throw new Error(`Det gamle navnet stemmer ikke. Du oppga «${cleanOld}», men aktivt kollektiv er «${currentName}».`);
+    }
+
+    if (cleanNew.toLowerCase() === currentName.toLowerCase()) {
+      throw new Error('Det nye navnet kan ikke være det samme som det gamle.');
+    }
+
+    const newId = generateCollectiveId(cleanNew);
+
+    // 1. Copy all current localStorage data to the new prefix
+    const oldPrefix = `vaske_${currentId}_`;
+    const newPrefix = `vaske_${newId}_`;
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(oldPrefix)) {
+        const suffix = key.replace(oldPrefix, '');
+        const val = localStorage.getItem(key);
+        localStorage.setItem(`${newPrefix}${suffix}`, val);
+      }
+    }
+
+    // 2. Remove old localStorage data
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(oldPrefix)) {
+        localStorage.removeItem(key);
+      }
+    }
+
+    // 3. Update registry
+    const registry = this.getRegistry();
+    const index = registry.findIndex(c => c.id === currentId);
+    if (index !== -1) {
+      registry[index] = { id: newId, name: cleanNew, lastActive: Date.now() };
+    } else {
+      registry.unshift({ id: newId, name: cleanNew, lastActive: Date.now() });
+    }
+    this.saveRegistry(registry);
+    this.setActiveId(newId);
+
+    // 4. Update Cloud Firestore if connected
+    if (typeof CloudSyncManager !== 'undefined' && CloudSyncManager.db) {
+      const db = CloudSyncManager.db;
+      if (CloudSyncManager.activeUnsubscribe) {
+        CloudSyncManager.activeUnsubscribe();
+        CloudSyncManager.activeUnsubscribe = null;
+      }
+      const payload = {
+        name: cleanNew,
+        roommates: app.roommates || [],
+        completedTasks: app.completedTasksByWeek || {},
+        customTasks: app.customTasksByWeek || {},
+        deepCleanHistory: app.deepCleanHistory || {},
+        scheduleAssignments: app.scheduleAssignments || {},
+        extraWeeks: app.extraWeeks || []
+      };
+      if (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue) {
+        payload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+      }
+      db.collection('vaskelister').doc(newId).set(payload, { merge: true })
+        .then(() => {
+          return db.collection('vaskelister').doc(currentId).delete();
+        })
+        .catch(err => console.warn('Firestore rename sync warning:', err));
+    }
+
+    // 5. Update app state
+    this.switchToApp(newId, cleanNew);
+
+    // 6. Update URL parameter
+    if (window.history && window.history.replaceState) {
+      const newUrl = window.location.pathname + '?kollektiv=' + encodeURIComponent(newId);
+      window.history.replaceState({}, '', newUrl);
+    }
+
+    return { newId, newName: cleanNew };
+  },
+
   logout() {
     this.setActiveId(null);
     this.showLoginView();
@@ -972,6 +1070,78 @@ function initCollectiveAuth() {
       }
     });
   }
+}
+
+function initRenameCollectiveModal() {
+  const modal = document.getElementById('renameCollectiveModal');
+  const btnOpen = document.getElementById('btnRenameCollective');
+  const btnClose = document.getElementById('btnCloseRenameModal');
+  const btnCancel = document.getElementById('btnCancelRenameModal');
+  const form = document.getElementById('formRenameCollective');
+  const oldInput = document.getElementById('inputOldCollectiveName');
+  const newInput = document.getElementById('inputNewCollectiveName');
+  const errorBanner = document.getElementById('renameErrorBanner');
+
+  if (!modal || !form) return;
+
+  const openModal = () => {
+    if (errorBanner) {
+      errorBanner.style.display = 'none';
+      errorBanner.textContent = '';
+    }
+    if (oldInput) {
+      oldInput.value = '';
+      if (app && app.collectiveName) {
+        oldInput.placeholder = `Skriv "${app.collectiveName}" for å bekrefte`;
+      }
+    }
+    if (newInput) {
+      newInput.value = '';
+    }
+    modal.classList.add('active');
+    setTimeout(() => {
+      if (oldInput) oldInput.focus();
+    }, 120);
+  };
+
+  const closeModal = () => {
+    modal.classList.remove('active');
+    if (errorBanner) {
+      errorBanner.style.display = 'none';
+    }
+  };
+
+  if (btnOpen) btnOpen.addEventListener('click', openModal);
+  if (btnClose) btnClose.addEventListener('click', closeModal);
+  if (btnCancel) btnCancel.addEventListener('click', closeModal);
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (errorBanner) {
+      errorBanner.style.display = 'none';
+      errorBanner.textContent = '';
+    }
+
+    try {
+      const res = CollectiveAuthManager.renameCollective(oldInput.value, newInput.value);
+      closeModal();
+      if (window.confetti) {
+        window.confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
+      }
+      alert(`Kollektivet er nå omdøpt til «${res.newName}»! Del gjerne den nye lenken med romkameratene dine.`);
+    } catch (err) {
+      if (errorBanner) {
+        errorBanner.textContent = err.message || 'Kunne ikke endre navn på kollektivet.';
+        errorBanner.style.display = 'block';
+      } else {
+        alert(err.message || 'Kunne ikke endre navn på kollektivet.');
+      }
+    }
+  });
 }
 
 // Developer / Admin Dashboard Manager
@@ -1428,6 +1598,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initScheduleExpansion();
   initAddTaskForm();
   initCollectiveAuth();
+  initRenameCollectiveModal();
   CloudSyncManager.init();
   DeveloperManager.init();
   initLegalModal();

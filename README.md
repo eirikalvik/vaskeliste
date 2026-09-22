@@ -57,3 +57,21 @@ Hvis du vil at avkryssinger skal oppdateres direkte på romkameratenes telefoner
 ## 📱 Slik legger du til som App på telefonen
 - **iPhone (Safari):** Åpne nettsiden, trykk på Del-knappen (firkant med pil opp) og velg **«Legg til på Hjem-skjerm»**.
 - **Android (Chrome):** Åpne nettsiden, trykk på de tre prikkene øverst til høyre og velg **«Legg til på startsiden»** eller **«Installer app»**.
+
+---
+
+## 🔗 Deling med romkamerater og venner
+- **Eget kollektiv for venner:** Venner kan gå inn på nettsiden og skrive inn sin egen adresse (f.eks. `Elvegata 4`). De får en helt egen vaskeplan som aldri blander seg med din.
+- **Direkte delelenke:** Inne i kollektivet ditt kan du trykke på **«Del lenke»** i toppmenyen. Lenken får formatet `?kollektiv=ditt_kollektiv` og tar romkameratene dine rett inn i kollektivet uten å måtte skrive inn navn!
+
+---
+
+## 🛠️ Utvikler-dashbord (Developer Mode)
+Som administrator og utvikler kan du se og administrere alle kollektiv:
+1. Klikk på **«Utvikler / Admin-modus»** nederst på innloggingssiden (eller skriv `admin` som kollektivnavn).
+2. Skriv inn utvikler-passordet: **`admin`** eller **`eirik`**.
+3. I dashbordet kan du:
+   - Se alle opprettede kollektiv (både fra skyen og lokalt)
+   - Se antall beboere og ukens fremgang for hvert kollektiv
+   - Gå direkte inn og inspisere et kollektiv
+   - Se rådata (JSON) eller rydde opp test-kollektiv.

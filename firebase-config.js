@@ -10,12 +10,12 @@
 */
 
 const DEFAULT_FIREBASE_CONFIG = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: ""
+  apiKey: "AIzaSyCODLYRzEhOrI4eedw3qYafcCU5zJ29bxY",
+  authDomain: "vaskeliste-7f124.firebaseapp.com",
+  projectId: "vaskeliste-7f124",
+  storageBucket: "vaskeliste-7f124.firebasestorage.app",
+  messagingSenderId: "826370211325",
+  appId: "1:826370211325:web:7d4fe8c1b915bf24936d94"
 };
 
 function getActiveFirebaseConfig() {

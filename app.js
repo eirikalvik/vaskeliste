@@ -928,8 +928,7 @@ const CloudSyncManager = {
     const modal = document.getElementById('cloudSyncModal');
     const btnOpen = document.getElementById('btnCloudSyncStatus');
     const btnClose = document.getElementById('btnCloseSyncModal');
-    const form = document.getElementById('formCloudSync');
-    const btnDisconnect = document.getElementById('btnDisconnectSync');
+    const btnCloseOk = document.getElementById('btnCloseSyncModalOk');
 
     if (!modal) return;
 
@@ -941,59 +940,10 @@ const CloudSyncManager = {
 
     if (btnOpen) btnOpen.addEventListener('click', openModal);
     if (btnClose) btnClose.addEventListener('click', closeModal);
+    if (btnCloseOk) btnCloseOk.addEventListener('click', closeModal);
     modal.addEventListener('click', (e) => {
       if (e.target === modal) closeModal();
     });
-
-    if (form) {
-      form.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const raw = document.getElementById('inputFirebaseConfigRaw').value.trim();
-        if (!raw) return;
-
-        try {
-          let parsed;
-          if (raw.startsWith('{')) {
-            parsed = JSON.parse(raw);
-          } else {
-            parsed = {};
-            const keys = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'];
-            keys.forEach(k => {
-              const match = raw.match(new RegExp(`${k}\\s*:\\s*["']([^"']+)["']`));
-              if (match) parsed[k] = match[1];
-            });
-          }
-
-          if (!parsed.projectId) {
-            alert('Kunne ikke finne "projectId". Sjekk at du har kopiert hele firebaseConfig-koden fra Firebase Console.');
-            return;
-          }
-
-          localStorage.setItem('vaske_firebase_custom_config', JSON.stringify(parsed));
-          this.connectFirebase();
-          closeModal();
-          if (window.confetti) window.confetti({ particleCount: 50, spread: 60 });
-        } catch (err) {
-          alert('Ugyldig format. Vennligst lim inn gyldig JSON eller JavaScript config fra Firebase.');
-        }
-      });
-    }
-
-    if (btnDisconnect) {
-      btnDisconnect.addEventListener('click', () => {
-        if (confirm('Vil du koble fra skyen og gå tilbake til kun lokal lagring?')) {
-          localStorage.removeItem('vaske_firebase_custom_config');
-          if (this.activeUnsubscribe) {
-            this.activeUnsubscribe();
-            this.activeUnsubscribe = null;
-          }
-          this.isInitialized = false;
-          this.db = null;
-          this.updateStatusBadge(false);
-          closeModal();
-        }
-      });
-    }
   },
 
   renderModalStatus() {
@@ -1001,22 +951,23 @@ const CloudSyncManager = {
     const icon = document.getElementById('syncBannerIcon');
     const title = document.getElementById('syncBannerTitle');
     const desc = document.getElementById('syncBannerDesc');
-    const textarea = document.getElementById('inputFirebaseConfigRaw');
+    const colNameEl = document.getElementById('syncModalCollectiveName');
     const configured = typeof isFirebaseConfigured === 'function' && isFirebaseConfigured();
 
+    if (colNameEl && app && app.collectiveName) {
+      colNameEl.textContent = app.collectiveName;
+    }
+
     if (configured) {
-      const cfg = getActiveFirebaseConfig();
       if (banner) banner.classList.add('connected');
       if (icon) icon.textContent = '☁️';
-      if (title) title.textContent = `Tilkoblet skyen (${cfg.projectId || 'Firebase'})`;
-      if (desc) desc.textContent = 'Oppgaver, beboere og datoer synkroniseres automatisk i sanntid på alle enheter.';
-      if (textarea) textarea.value = JSON.stringify(cfg, null, 2);
+      if (title) title.textContent = 'Tilkoblet og aktiv';
+      if (desc) desc.textContent = 'Vaskeplanen, avkryssinger og oppgaver synkroniseres automatisk i sanntid. Når noen krysser av en oppgave på sin mobil, oppdateres det umiddelbart for alle andre i kollektivet.';
     } else {
       if (banner) banner.classList.remove('connected');
       if (icon) icon.textContent = '📱';
-      if (title) title.textContent = 'Lokal modus (Kun denne enheten)';
-      if (desc) desc.textContent = 'For at andre beboere skal se avkryssinger på sine mobiler, kan du koble til et gratis Firebase-prosjekt.';
-      if (textarea) textarea.value = '';
+      if (title) title.textContent = 'Lokal modus';
+      if (desc) desc.textContent = 'Endringer lagres lokalt på denne enheten.';
     }
   }
 };
@@ -1148,55 +1099,55 @@ function initRenameCollectiveModal() {
   });
 }
 
-function initCollectiveDropdown() {
-  const trigger = document.getElementById('btnCollectiveDropdownTrigger');
-  const menu = document.getElementById('collectiveDropdownMenu');
-  if (!trigger || !menu) return;
+function initColMoreToggle() {
+  const toggleBtn = document.getElementById('btnToggleColMore');
+  const hiddenActions = document.getElementById('colBarHiddenActions');
+  const toggleText = document.getElementById('btnToggleColMoreText');
+  const pill = document.getElementById('activeCollectivePill');
+  if (!toggleBtn || !hiddenActions) return;
 
-  const toggleMenu = (e) => {
+  const closeActions = () => {
+    hiddenActions.style.display = 'none';
+    toggleBtn.classList.remove('active');
+    toggleBtn.setAttribute('aria-expanded', 'false');
+    if (toggleText) toggleText.textContent = 'Mer';
+  };
+
+  const openActions = () => {
+    hiddenActions.style.display = 'flex';
+    toggleBtn.classList.add('active');
+    toggleBtn.setAttribute('aria-expanded', 'true');
+    if (toggleText) toggleText.textContent = 'Mindre';
+  };
+
+  toggleBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    const isOpen = menu.classList.contains('active');
-    if (isOpen) {
-      closeMenu();
+    const isHidden = hiddenActions.style.display === 'none' || !hiddenActions.style.display;
+    if (isHidden) {
+      openActions();
     } else {
-      openMenu();
+      closeActions();
     }
-  };
+  });
 
-  const openMenu = () => {
-    menu.classList.add('active');
-    trigger.setAttribute('aria-expanded', 'true');
-    const curNameEl = document.getElementById('dropdownCurrentName');
-    if (curNameEl && app && app.collectiveName) {
-      curNameEl.textContent = app.collectiveName;
-    }
-  };
-
-  const closeMenu = () => {
-    menu.classList.remove('active');
-    trigger.setAttribute('aria-expanded', 'false');
-  };
-
-  trigger.addEventListener('click', toggleMenu);
-
-  // Close when clicking any item in the dropdown
-  menu.querySelectorAll('.col-dropdown-item').forEach(item => {
-    item.addEventListener('click', () => {
-      closeMenu();
+  // When clicking any action inside hidden actions, close it
+  hiddenActions.querySelectorAll('.btn-col-action').forEach(btn => {
+    btn.addEventListener('click', () => {
+      closeActions();
     });
   });
 
-  // Close when clicking outside
+  // Close when clicking outside collective bar
   document.addEventListener('click', (e) => {
-    if (!trigger.contains(e.target) && !menu.contains(e.target)) {
-      closeMenu();
+    if (pill && !pill.contains(e.target)) {
+      closeActions();
     }
   });
 
-  // Close on Escape key
+  // Close on Escape
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && menu.classList.contains('active')) {
-      closeMenu();
+    if (e.key === 'Escape') {
+      closeActions();
     }
   });
 }
@@ -1656,7 +1607,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initAddTaskForm();
   initCollectiveAuth();
   initRenameCollectiveModal();
-  initCollectiveDropdown();
+  initColMoreToggle();
   CloudSyncManager.init();
   DeveloperManager.init();
   initLegalModal();

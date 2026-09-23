@@ -385,6 +385,14 @@ class CleaningAppState {
   clearDeepCleanEntry(taskId) {
     delete this.deepCleanHistory[taskId];
     this.save('vaske_deep_clean_history', this.deepCleanHistory);
+
+    if (typeof CloudSyncManager !== 'undefined' && CloudSyncManager.db && this.collectiveId) {
+      if (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue) {
+        CloudSyncManager.db.collection('vaskelister').doc(this.collectiveId).update({
+          [`deepCleanHistory.${taskId}`]: firebase.firestore.FieldValue.delete()
+        }).catch(err => console.warn('Firestore deep clean delete warning:', err));
+      }
+    }
   }
 
   // Expand schedule to next year
@@ -2286,24 +2294,15 @@ function renderDeepClean() {
           <span>Gjort i dag</span>
         </button>
 
-        <button class="btn btn-glass btn-sm-dc btn-open-cal-view" data-id="${item.id}" title="Åpne kalendervisning for å velge dato">
+        <button class="btn btn-glass btn-sm-dc btn-open-cal-view" data-id="${item.id}" title="Registrer ny fullføring av denne oppgaven">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
             <line x1="16" y1="2" x2="16" y2="6"/>
             <line x1="8" y1="2" x2="8" y2="6"/>
             <line x1="3" y1="10" x2="21" y2="10"/>
           </svg>
-          <span>${isCompleted ? 'Endre dato' : 'Velg dato (Kalender)'}</span>
+          <span>${isCompleted ? 'Ny registrering' : 'Velg dato'}</span>
         </button>
-
-        ${isCompleted ? `
-          <button class="btn btn-icon-only btn-clear-dc" data-id="${item.id}" title="Fjern registrering">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"/>
-              <line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
-        ` : ''}
       </div>
     `;
 
@@ -2317,31 +2316,22 @@ function renderDeepClean() {
       if (window.confetti) window.confetti({ particleCount: 40, spread: 50 });
     });
 
-    // 2. Open Calendar View
+    // 2. Open Calendar View to register new completion
     const btnCal = card.querySelector('.btn-open-cal-view');
-    btnCal.addEventListener('click', () => {
-      openCalendarModal(item.id);
+    btnCal.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openCalendarModal(item.id, { mode: 'new' });
     });
 
-    // Also click status bar to view/edit in calendar
+    // Click status bar to view/manage existing in calendar
     const statusBar = card.querySelector('.dc-status-bar');
     statusBar.style.cursor = 'pointer';
-    statusBar.title = 'Klikk for å åpne kalendervisning';
+    statusBar.title = isCompleted 
+      ? 'Klikk for å se eller slette denne registreringen i kalenderen' 
+      : 'Klikk for å registrere i kalenderen';
     statusBar.addEventListener('click', () => {
-      openCalendarModal(item.id);
+      openCalendarModal(item.id, { mode: isCompleted ? 'existing' : 'new' });
     });
-
-    // 3. Clear registration if needed
-    const btnClear = card.querySelector('.btn-clear-dc');
-    if (btnClear) {
-      btnClear.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (confirm(`Fjerne registreringen for "${item.title}"?`)) {
-          app.clearDeepCleanEntry(item.id);
-          renderDeepClean();
-        }
-      });
-    }
 
     container.appendChild(card);
   });
@@ -2476,15 +2466,14 @@ function renderDeepCleanFullCalendar() {
       `;
       pill.addEventListener('click', (e) => {
         e.stopPropagation();
-        openCalendarModal(task.id);
+        openCalendarModal(task.id, { mode: 'existing' });
       });
       cell.appendChild(pill);
     });
 
     cell.addEventListener('click', () => {
       const defaultTask = matchingTasks.length > 0 ? matchingTasks[0].task.id : DEEP_CLEAN_TASKS[0].id;
-      openCalendarModal(defaultTask);
-      selectCalendarDate(new Date(year, month, day));
+      openCalendarModal(defaultTask, { mode: 'new', selectedDate: new Date(year, month, day) });
     });
 
     return cell;
@@ -2530,7 +2519,7 @@ function renderStatusStrip() {
     const chip = document.createElement('div');
     chip.className = `status-chip ${isWarn ? 'status-chip-warn' : 'status-chip-ok'}`;
     chip.style.cursor = 'pointer';
-    chip.title = 'Klikk for å registrere eller endre dato i kalenderen';
+    chip.title = 'Klikk for å se, slette eller registrere ny dato i kalenderen';
     chip.innerHTML = `
       <span>${t.icon}</span>
       <strong>${t.title}:</strong>
@@ -2538,7 +2527,7 @@ function renderStatusStrip() {
       ${rec?.completedBy ? `<span>(${rec.completedBy})</span>` : ''}
     `;
     chip.addEventListener('click', () => {
-      openCalendarModal(t.id);
+      openCalendarModal(t.id, { mode: isDone ? 'existing' : 'new' });
     });
     strip.appendChild(chip);
   });
@@ -2837,9 +2826,33 @@ function initCalendarModal() {
 
     app.saveDeepCleanEntry(calCurrentTaskId, dateStr, person, note);
     renderDeepClean();
+    renderDeepCleanFullCalendar();
     closeModal();
     if (window.confetti) window.confetti({ particleCount: 50, spread: 60 });
   });
+
+  // Delete handler for existing deep clean record
+  const handleDeleteRecord = () => {
+    if (!calCurrentTaskId) return;
+    const taskObj = DEEP_CLEAN_TASKS.find(t => t.id === calCurrentTaskId);
+    const record = app.deepCleanHistory[calCurrentTaskId];
+    const taskTitle = taskObj ? taskObj.title : 'denne oppgaven';
+    const dateDesc = record ? `(${record.displayDate || record.dateInput})` : '';
+
+    if (!confirm(`Er du sikker på at du vil slette registreringen for «${taskTitle}» ${dateDesc}?`)) {
+      return;
+    }
+
+    app.clearDeepCleanEntry(calCurrentTaskId);
+    renderDeepClean();
+    renderDeepCleanFullCalendar();
+    closeModal();
+  };
+
+  const btnDeleteBanner = document.getElementById('btnDeleteCalRecord');
+  const btnDeleteFooter = document.getElementById('btnCalModalDeleteFooter');
+  if (btnDeleteBanner) btnDeleteBanner.addEventListener('click', handleDeleteRecord);
+  if (btnDeleteFooter) btnDeleteFooter.addEventListener('click', handleDeleteRecord);
 }
 
 function selectCalendarDate(date, presetId = null) {
@@ -2864,34 +2877,87 @@ function updateSelectedDisplay() {
   }
 }
 
-function openCalendarModal(taskId) {
+function openCalendarModal(taskId, options = {}) {
   calCurrentTaskId = taskId;
   const taskObj = DEEP_CLEAN_TASKS.find(t => t.id === taskId);
   const record = app.deepCleanHistory[taskId];
 
-  document.getElementById('calModalTitle').textContent = taskObj ? taskObj.title : 'Velg dato';
-  document.getElementById('calModalTaskSubtitle').textContent = taskObj ? taskObj.desc : 'Registrer når oppgaven ble utført';
+  const modalTitle = document.getElementById('calModalTitle');
+  const modalSub = document.getElementById('calModalTaskSubtitle');
+  const banner = document.getElementById('calExistingRecordBanner');
+  const bannerDetails = document.getElementById('calExistingRecordDetails');
+  const btnDeleteFooter = document.getElementById('btnCalModalDeleteFooter');
 
-  const select = document.getElementById('calPersonSelect');
-  select.innerHTML = app.roommates.map(rm => `
-    <option value="${rm.name}" ${record?.completedBy === rm.name ? 'selected' : ''}>
-      ${rm.name}
-    </option>
-  `).join('');
+  const isExistingMode = options.mode === 'existing';
 
-  document.getElementById('calNoteInput').value = record?.note || '';
+  if (modalTitle) modalTitle.textContent = taskObj ? taskObj.title : 'Velg dato';
+  if (modalSub) {
+    modalSub.textContent = isExistingMode
+      ? 'Se, rediger eller slett tidligere fullføring'
+      : (taskObj ? taskObj.desc : 'Registrer ny fullføring');
+  }
 
-  if (record && record.dateInput) {
+  // Handle existing record banner and delete buttons
+  if (record) {
+    if (banner) {
+      banner.style.display = 'flex';
+      if (bannerDetails) {
+        bannerDetails.textContent = `${record.displayDate || record.dateInput} • Utført av ${record.completedBy || ''}${record.note ? ` ("${record.note}")` : ''}`;
+      }
+    }
+    if (btnDeleteFooter) btnDeleteFooter.style.display = 'inline-flex';
+  } else {
+    if (banner) banner.style.display = 'none';
+    if (btnDeleteFooter) btnDeleteFooter.style.display = 'none';
+  }
+
+  // Date selection:
+  // If explicitly viewing/managing an existing record from calendar pill or status bar, show historical date
+  if (isExistingMode && record && record.dateInput) {
     const parts = record.dateInput.split('-');
     calSelectedDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  } else if (options.selectedDate instanceof Date) {
+    calSelectedDate = options.selectedDate;
   } else {
+    // NEW registration: ALWAYS default to TODAY for fast, seamless entry!
     calSelectedDate = new Date();
   }
 
   calViewYear = calSelectedDate.getFullYear();
   calViewMonth = calSelectedDate.getMonth();
 
+  // Roommate selection:
+  // In existing mode: pick whoever completed it before
+  // In new mode: default to the weekly schedule assignee or first roommate
+  const defaultPerson = (isExistingMode && record?.completedBy) 
+    ? record.completedBy 
+    : (app.getAssigneeForWeek(app.activeWeekId) || (app.roommates[0] ? app.roommates[0].name : ''));
+
+  const select = document.getElementById('calPersonSelect');
+  if (select) {
+    select.innerHTML = app.roommates.map(rm => `
+      <option value="${rm.name}" ${defaultPerson === rm.name ? 'selected' : ''}>
+        ${rm.name}
+      </option>
+    `).join('');
+  }
+
+  // Note input:
+  // In existing mode: keep existing note
+  // In new mode: fresh empty note!
+  const noteInput = document.getElementById('calNoteInput');
+  if (noteInput) {
+    noteInput.value = (isExistingMode && record?.note) ? record.note : '';
+  }
+
+  // Preset chips highlight
   document.querySelectorAll('.preset-chip').forEach(chip => chip.classList.remove('active'));
+  const todayStr = formatDateToInputString(new Date());
+  const selectedStr = formatDateToInputString(calSelectedDate);
+  if (selectedStr === todayStr) {
+    const chip = document.getElementById('presetToday');
+    if (chip) chip.classList.add('active');
+  }
 
   updateSelectedDisplay();
   renderMiniCalendar();

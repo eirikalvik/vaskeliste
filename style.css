@@ -1721,6 +1721,64 @@ body {
   max-width: 440px;
 }
 
+/* Existing Record Banner in Calendar Modal */
+.cal-existing-record-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-left: 3px solid #34d399;
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  margin-bottom: 14px;
+}
+
+.cal-existing-record-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cal-existing-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.cal-existing-text-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.cal-existing-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.cal-existing-details {
+  font-size: 0.84rem;
+  color: #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.btn-delete-cal-record {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  gap: 4px;
+  min-width: auto;
+}
+
 .cal-presets {
   display: flex;
   gap: 8px;

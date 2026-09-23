@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="icon.svg">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#10b981">
-  <link rel="stylesheet" href="style.css?v=2.8">
+  <link rel="stylesheet" href="style.css?v=2.9">
   <!-- Canvas Confetti for task completion celebration -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
@@ -827,6 +827,24 @@
         <button class="modal-close-btn" id="btnCloseCalModal">&times;</button>
       </div>
 
+      <!-- Existing Record Banner (Visible when task has a recorded completion) -->
+      <div class="cal-existing-record-banner" id="calExistingRecordBanner" style="display: none;">
+        <div class="cal-existing-record-content">
+          <span class="cal-existing-icon">📌</span>
+          <div class="cal-existing-text-wrap">
+            <span class="cal-existing-title">Tidligere registrering</span>
+            <span class="cal-existing-details" id="calExistingRecordDetails">8. sep. 2026 • Eirik</span>
+          </div>
+        </div>
+        <button type="button" class="btn btn-dev-action danger btn-delete-cal-record" id="btnDeleteCalRecord" title="Slett denne registreringen">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+          <span>Slett</span>
+        </button>
+      </div>
+
       <!-- Quick Presets -->
       <div class="cal-presets">
         <button type="button" class="preset-chip" id="presetToday">I dag</button>
@@ -900,9 +918,18 @@
         </div>
       </div>
 
-      <div class="modal-actions">
-        <button type="button" class="btn btn-glass-secondary" id="btnCancelCalModal">Avbryt</button>
-        <button type="button" class="btn btn-primary" id="btnSaveCalEntry">Lagre fullføring</button>
+      <div class="modal-actions" style="display: flex; justify-content: space-between; align-items: center;">
+        <button type="button" class="btn btn-dev-action danger" id="btnCalModalDeleteFooter" style="display: none;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+          <span>Slett registrering</span>
+        </button>
+        <div style="display: flex; gap: 8px; margin-left: auto;">
+          <button type="button" class="btn btn-glass-secondary" id="btnCancelCalModal">Avbryt</button>
+          <button type="button" class="btn btn-primary" id="btnSaveCalEntry">Lagre fullføring</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1109,7 +1136,7 @@
   <!-- Firebase Cloud Sync SDKs -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=2.8"></script>
-  <script src="app.js?v=2.8"></script>
+  <script src="firebase-config.js?v=2.9"></script>
+  <script src="app.js?v=2.9"></script>
 </body>
 </html>

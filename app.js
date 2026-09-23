@@ -371,6 +371,20 @@ class CleaningAppState {
     return newTask;
   }
 
+  removeCustomTask(weekId, taskId) {
+    const id = String(weekId);
+    if (!this.customTasksByWeek[id]) return;
+
+    this.customTasksByWeek[id] = this.customTasksByWeek[id].filter(t => t.id !== taskId);
+    this.save('vaske_custom_tasks', this.customTasksByWeek);
+
+    // Also remove any completion state recorded for this task in that week
+    if (this.completedTasksByWeek[id] && this.completedTasksByWeek[id][taskId] !== undefined) {
+      delete this.completedTasksByWeek[id][taskId];
+      this.save('vaske_completed_tasks', this.completedTasksByWeek);
+    }
+  }
+
   saveDeepCleanEntry(taskId, dateString, completedByName, note = '') {
     this.deepCleanHistory[taskId] = {
       dateInput: dateString,
@@ -2220,8 +2234,11 @@ function renderWeeklyTasks() {
     if (!targetUl) return;
 
     const isDone = app.isTaskDone(app.activeWeekId, task.id);
+    const isCustom = String(task.id).startsWith('custom_') || 
+      (app.customTasksByWeek[app.activeWeekId] && app.customTasksByWeek[app.activeWeekId].some(ct => ct.id === task.id));
+
     const li = document.createElement('li');
-    li.className = `task-item ${isDone ? 'completed' : ''}`;
+    li.className = `task-item ${isDone ? 'completed' : ''} ${isCustom ? 'is-custom-task' : ''}`;
     li.id = `task-${task.id}`;
 
     li.innerHTML = `
@@ -2231,18 +2248,41 @@ function renderWeeklyTasks() {
         </svg>
       </div>
       <div class="task-details">
-        <span class="task-text">${task.title}</span>
+        <span class="task-text">${escapeHTML(task.title)}</span>
         <div class="task-tag-row">
-          <span class="task-tag">${task.tag || 'Oppgave'}</span>
+          <span class="task-tag ${isCustom ? 'tag-custom' : ''}">${escapeHTML(task.tag || (isCustom ? 'Ekstra' : 'Oppgave'))}</span>
         </div>
       </div>
+      ${isCustom ? `
+        <button type="button" class="btn-remove-custom-task" title="Fjern denne ekstraoppgaven fra uken" aria-label="Slett ekstraoppgave">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+        </button>
+      ` : ''}
     `;
 
-    li.addEventListener('click', () => {
+    li.addEventListener('click', (e) => {
+      if (e.target.closest('.btn-remove-custom-task')) return;
       const nowDone = app.toggleTask(app.activeWeekId, task.id);
       li.classList.toggle('completed', nowDone);
       updateProgress();
     });
+
+    if (isCustom) {
+      const btnRemove = li.querySelector('.btn-remove-custom-task');
+      if (btnRemove) {
+        btnRemove.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (confirm(`Fjerne oppgaven «${task.title}» fra denne uken?`)) {
+            app.removeCustomTask(app.activeWeekId, task.id);
+            renderWeeklyTasks();
+            updateProgress();
+          }
+        });
+      }
+    }
 
     targetUl.appendChild(li);
   });
